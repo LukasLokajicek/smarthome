@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2016 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.internal.provider.file;
 
@@ -27,6 +32,7 @@ import org.eclipse.smarthome.automation.template.Template;
 import org.eclipse.smarthome.automation.template.TemplateProvider;
 import org.eclipse.smarthome.automation.type.ModuleType;
 import org.eclipse.smarthome.automation.type.ModuleTypeProvider;
+import org.eclipse.smarthome.config.core.ConfigConstants;
 import org.eclipse.smarthome.core.common.registry.Provider;
 import org.eclipse.smarthome.core.common.registry.ProviderChangeListener;
 import org.slf4j.Logger;
@@ -79,7 +85,7 @@ public abstract class AbstractFileProvider<E> implements Provider<E> {
 
     public AbstractFileProvider(String root) {
         this.rootSubdirectory = root;
-        configurationRoots = new String[] { "automation" };
+        configurationRoots = new String[] { ConfigConstants.getConfigFolder() + File.separator + "automation" };
     }
 
     public void activate(Map<String, Object> config) {
@@ -138,7 +144,7 @@ public abstract class AbstractFileProvider<E> implements Provider<E> {
             File[] files = file.listFiles();
             if (files != null) {
                 for (File f : files) {
-                    if (!file.isHidden()) {
+                    if (!f.isHidden()) {
                         importResources(f);
                     }
                 }
@@ -224,9 +230,9 @@ public abstract class AbstractFileProvider<E> implements Provider<E> {
                 Set<E> providedObjects = parser.parse(inputStreamReader);
                 updateProvidedObjectsHolder(url, providedObjects);
             } catch (ParsingException e) {
-                logger.debug(e.getMessage(), e);
+                logger.debug("{}", e.getMessage(), e);
             } catch (IOException e) {
-                logger.debug(e.getMessage(), e);
+                logger.debug("{}", e.getMessage(), e);
             } finally {
                 if (inputStreamReader != null) {
                     try {
@@ -259,9 +265,9 @@ public abstract class AbstractFileProvider<E> implements Provider<E> {
             List<String> uids = new ArrayList<String>();
             for (E providedObject : providedObjects) {
                 String uid = getUID(providedObject);
-                notifyListeners(providedObjectsHolder.get(uid), providedObject);
                 uids.add(uid);
-                providedObjectsHolder.put(uid, providedObject);
+                E oldProvidedObject = providedObjectsHolder.put(uid, providedObject);
+                notifyListeners(oldProvidedObject, providedObject);
             }
             providerPortfolio.put(url, uids);
         }

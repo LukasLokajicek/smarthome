@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.i18n;
 
@@ -12,7 +17,7 @@ import java.util.Locale;
 import org.osgi.framework.Bundle;
 
 /**
- * The {@link BindingI18nUtil} uses the {@link I18nProvider} to resolve the
+ * The {@link BindingI18nUtil} uses the {@link TranslationProvider} to resolve the
  * localized texts. It automatically infers the key if the default text is not a
  * constant.
  *
@@ -20,14 +25,13 @@ import org.osgi.framework.Bundle;
  */
 public class BindingI18nUtil {
 
-    private I18nProvider i18nProvider;
+    private TranslationProvider i18nProvider;
 
-    public BindingI18nUtil(I18nProvider i18nProvider) {
+    public BindingI18nUtil(TranslationProvider i18nProvider) {
         this.i18nProvider = i18nProvider;
     }
 
     public String getDescription(Bundle bundle, String bindingId, String defaultDescription, Locale locale) {
-
         String key = I18nUtil.isConstant(defaultDescription) ? I18nUtil.stripConstant(defaultDescription) : inferKey(
                 bindingId, "description");
 

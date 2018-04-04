@@ -1,14 +1,21 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.audio;
 
 import java.util.Set;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.core.library.types.PercentType;
 
 /**
@@ -16,7 +23,10 @@ import org.eclipse.smarthome.core.library.types.PercentType;
  *
  * @author Karel Goderis - Initial contribution and API
  * @author Kai Kreuzer - removed unwanted dependencies
+ * @author Christoph Weitkamp - Added parameter to adjust the volume
+ *
  */
+@NonNullByDefault
 public interface AudioManager {
 
     /**
@@ -27,63 +37,95 @@ public interface AudioManager {
     /**
      * Plays the passed audio stream using the default audio sink.
      *
-     * @param audioStream The audio stream to play
+     * @param audioStream The audio stream to play or null if streaming should be stopped
      */
-    void play(AudioStream audioStream);
+    void play(@Nullable AudioStream audioStream);
 
     /**
      * Plays the passed audio stream on the given sink.
      *
-     * @param audioStream The audio stream to play
-     * @param sinkId The id of the audio sink to use or null
+     * @param audioStream The audio stream to play or null if streaming should be stopped
+     * @param sinkId The id of the audio sink to use or null for the default
      */
-    void play(AudioStream audioStream, String sinkId);
+    void play(@Nullable AudioStream audioStream, @Nullable String sinkId);
+
+    /**
+     * Plays the passed audio stream on the given sink.
+     *
+     * @param audioStream The audio stream to play or null if streaming should be stopped
+     * @param sinkId The id of the audio sink to use or null for the default
+     * @param volume The volume to be used or null if the default notification volume should be used
+     */
+    void play(@Nullable AudioStream audioStream, @Nullable String sinkId, @Nullable PercentType volume);
 
     /**
      * Plays an audio file from the "sounds" folder using the default audio sink.
      *
+     * @param fileName The file from the "sounds" folder
      * @throws AudioException in case the file does not exist or cannot be opened
      */
     void playFile(String fileName) throws AudioException;
 
     /**
-     * Plays an audio file from the "sounds" folder using the given audio sink.
+     * Plays an audio file with the given volume from the "sounds" folder using the default audio sink.
      *
+     * @param fileName The file from the "sounds" folder
+     * @param volume The volume to be used or null if the default notification volume should be used
      * @throws AudioException in case the file does not exist or cannot be opened
      */
-    void playFile(String fileName, String sink) throws AudioException;
+    void playFile(String fileName, @Nullable PercentType volume) throws AudioException;
+
+    /**
+     * Plays an audio file from the "sounds" folder using the given audio sink.
+     *
+     * @param fileName The file from the "sounds" folder
+     * @param sink The id of the audio sink to use or null for the default
+     * @throws AudioException in case the file does not exist or cannot be opened
+     */
+    void playFile(String fileName, @Nullable String sink) throws AudioException;
+
+    /**
+     * Plays an audio file with the given volume from the "sounds" folder using the given audio sink.
+     *
+     * @param fileName The file from the "sounds" folder
+     * @param sink The id of the audio sink to use or null for the default
+     * @param volume The volume to be used or null if the default notification volume should be used
+     * @throws AudioException in case the file does not exist or cannot be opened
+     */
+    void playFile(String fileName, @Nullable String sink, @Nullable PercentType volume) throws AudioException;
 
     /**
      * Stream audio from the passed url using the default audio sink.
      *
+     * @param url The url to stream from or null if streaming should be stopped
      * @throws AudioException in case the url stream cannot be opened
      */
-    void stream(String url) throws AudioException;
+    void stream(@Nullable String url) throws AudioException;
 
     /**
      * Stream audio from the passed url to the given sink
      *
      * @param url The url to stream from or null if streaming should be stopped
-     * @param sinkId The id of the audio sink to use or null
+     * @param sinkId The id of the audio sink to use or null for the default
      * @throws AudioException in case the url stream cannot be opened
      */
-    void stream(String url, String sinkId) throws AudioException;
+    void stream(@Nullable String url, @Nullable String sinkId) throws AudioException;
 
     /**
      * Retrieves the current volume of a sink
      *
-     * @param sinkId the sink to get the volume for
+     * @param sinkId the sink to get the volume for or null for the default
      * @return the volume as a value between 0 and 100
      */
-    PercentType getVolume(String sinkId);
+    PercentType getVolume(@Nullable String sinkId);
 
     /**
      * Sets the volume for a sink.
      *
      * @param volume the volume to set as a value between 0 and 100
-     * @param sinkId the sink to set the volume
+     * @param sinkId the sink to set the volume for or null for the default
      */
-    void setVolume(PercentType volume, String sinkId);
+    void setVolume(PercentType volume, @Nullable String sinkId);
 
     /**
      * Retrieves an AudioSource.
@@ -94,6 +136,7 @@ public interface AudioManager {
      * @return an AudioSource or null, if no service is available or if a default is configured, but no according
      *         service is found
      */
+    @Nullable
     AudioSource getSource();
 
     /**
@@ -105,6 +148,7 @@ public interface AudioManager {
      * @return an AudioSink or null, if no service is available or if a default is configured, but no according service
      *         is found
      */
+    @Nullable
     AudioSink getSink();
 
     /**
@@ -135,7 +179,8 @@ public interface AudioManager {
      * @param sinkId the id of the sink or null for the default
      * @return the sink instance for the id or the default sink
      */
-    AudioSink getSink(String sinkId);
+    @Nullable
+    AudioSink getSink(@Nullable String sinkId);
 
     /**
      * Get a list of sink ids that match a given pattern

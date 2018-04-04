@@ -1,21 +1,24 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.wemo.handler.test
 
 import static org.hamcrest.CoreMatchers.*
 import static org.junit.Assert.*
 import static org.junit.matchers.JUnitMatchers.*
-import groovy.xml.XmlUtil
 
 import javax.servlet.http.HttpServlet
 
 import org.eclipse.smarthome.binding.wemo.WemoBindingConstants
-import org.eclipse.smarthome.binding.wemo.handler.WemoMakerHandler
 import org.eclipse.smarthome.binding.wemo.test.GenericWemoHttpServlet
 import org.eclipse.smarthome.binding.wemo.test.GenericWemoOSGiTest
 import org.eclipse.smarthome.core.items.Item
@@ -23,12 +26,13 @@ import org.eclipse.smarthome.core.library.types.OnOffType
 import org.eclipse.smarthome.core.thing.ChannelUID
 import org.eclipse.smarthome.core.thing.Thing
 import org.eclipse.smarthome.core.thing.ThingStatus
-import org.eclipse.smarthome.core.thing.binding.ThingHandler
 import org.eclipse.smarthome.core.types.RefreshType
 import org.eclipse.smarthome.core.types.UnDefType
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+
+import groovy.xml.XmlUtil
 
 /**
  * Tests for {@link WemoMakerHandler}.
@@ -79,22 +83,20 @@ class WemoMakerHandlerOSGiTest extends GenericWemoOSGiTest {
 
         addUpnpDevice(DEVICE_EVENT_SERVICE_ID, SERVICE_NUMBER, MODEL)
 
-        createThing(THING_TYPE_UID, DEFAULT_TEST_CHANNEL, DEFAULT_TEST_CHANNEL_TYPE);
+        Thing thing = createThing(THING_TYPE_UID, DEFAULT_TEST_CHANNEL, DEFAULT_TEST_CHANNEL_TYPE);
 
         waitForAssert {
-            WemoMakerHandler handler = getThingHandler(WemoMakerHandler.class)
-            assertThat handler, is(notNullValue())
-            assertThat handler.getThing().getStatus(), is(ThingStatus.ONLINE)
+            assertThat thing.getStatus(), is(ThingStatus.ONLINE)
         }
 
         waitForAssert{
-            assertThat "Invalid SOAP action sent to the device: ${deviceServlet.actions}", deviceServlet.actions.contains(WemoMakerHttpServlet.GET_ACTION), is (true)
+            assertThat deviceServlet.actions.contains(WemoMakerHttpServlet.GET_ACTION), is (true)
         }
 
         waitForAssert{
             Item item = itemRegistry.getItem(DEFAULT_TEST_ITEM_NAME)
-            assertThat "Item with name ${DEFAULT_TEST_ITEM_NAME} may not be created. Check the createItem() method.", item, is(notNullValue())
-            assertThat "The state of the item ${DEFAULT_TEST_ITEM_NAME} was not updated at start.", item.getState(), is(expectedState)
+            assertThat item, is(notNullValue())
+            assertThat item.getState(), is(expectedState)
         }
     }
 
@@ -103,12 +105,10 @@ class WemoMakerHandlerOSGiTest extends GenericWemoOSGiTest {
         def command = OnOffType.OFF
         def expectedState = "0"
 
-        createThing(THING_TYPE_UID, DEFAULT_TEST_CHANNEL, DEFAULT_TEST_CHANNEL_TYPE)
+        Thing thing = createThing(THING_TYPE_UID, DEFAULT_TEST_CHANNEL, DEFAULT_TEST_CHANNEL_TYPE)
 
         waitForAssert {
-            WemoMakerHandler handler = getThingHandler(WemoMakerHandler.class)
-            assertThat handler, is(notNullValue())
-            assertThat handler.getThing().getStatus(), is(ThingStatus.ONLINE)
+            assertThat thing.getStatus(), is(ThingStatus.ONLINE)
         }
 
         // The Device is registered as UPnP Device after the initialization, this will ensure that the polling job will not start
@@ -118,8 +118,8 @@ class WemoMakerHandlerOSGiTest extends GenericWemoOSGiTest {
         thing.getHandler().handleCommand(channelUID, command)
 
         waitForAssert {
-            assertThat "Invalid SOAP action sent to the device: ${basicServlet.actions}", basicServlet.actions.contains(WemoMakerHttpServlet.SET_ACTION), is(true)
-            assertThat "The state of the device after the command ${command} was not updated with the expected value.", basicServlet.binaryState, is(expectedState)
+            assertThat basicServlet.actions.contains(WemoMakerHttpServlet.SET_ACTION), is(true)
+            assertThat basicServlet.binaryState, is(expectedState)
         }
     }
 
@@ -130,18 +130,16 @@ class WemoMakerHandlerOSGiTest extends GenericWemoOSGiTest {
         def expectedState = OnOffType.ON
         def command = RefreshType.REFRESH
 
-        createThing(THING_TYPE_UID, DEFAULT_TEST_CHANNEL, DEFAULT_TEST_CHANNEL_TYPE)
+        Thing thing = createThing(THING_TYPE_UID, DEFAULT_TEST_CHANNEL, DEFAULT_TEST_CHANNEL_TYPE)
 
         waitForAssert {
-            WemoMakerHandler handler = getThingHandler(WemoMakerHandler.class)
-            assertThat handler, is(notNullValue())
-            assertThat handler.getThing().getStatus(), is(ThingStatus.ONLINE)
+            assertThat thing.getStatus(), is(ThingStatus.ONLINE)
         }
 
         waitForAssert{
             Item item = itemRegistry.get(DEFAULT_TEST_ITEM_NAME)
-            assertThat "Item with name ${DEFAULT_TEST_ITEM_NAME} may not be created. Check the createItem() method.", item, is(notNullValue())
-            assertThat "The state of the item ${DEFAULT_TEST_ITEM_NAME} was not updated at start.", item.getState(), is(UnDefType.NULL)
+            assertThat item, is(notNullValue())
+            assertThat item.getState(), is(UnDefType.NULL)
         }
 
         // The Device is registered as UPnP Device after the initialization, this will ensure that the polling job will not start
@@ -151,29 +149,28 @@ class WemoMakerHandlerOSGiTest extends GenericWemoOSGiTest {
         thing.getHandler().handleCommand(channelUID, command)
 
         waitForAssert {
-            assertThat "Invalid SOAP action sent to the device:${deviceServlet.actions}", deviceServlet.actions.contains(WemoMakerHttpServlet.GET_ACTION), is(true)
+            assertThat deviceServlet.actions.contains(WemoMakerHttpServlet.GET_ACTION), is(true)
         }
 
         waitForAssert{
             Item item = itemRegistry.get(DEFAULT_TEST_ITEM_NAME)
-            assertThat "Item with name ${DEFAULT_TEST_ITEM_NAME} may not be created. Check the createItem() method.", item, is(notNullValue())
-            assertThat "The state of the item ${DEFAULT_TEST_ITEM_NAME} was not updated after command ${command}.", item.getState(), is(expectedState)
+            assertThat item, is(notNullValue())
+            assertThat item.getState(), is(expectedState)
         }
     }
 
     private void removeThing() {
         if(thing != null) {
             Thing removedThing = thingRegistry.remove(thing.getUID())
-            assertThat("The thing cannot be deleted", removedThing, is(notNullValue()))
+            assertThat(removedThing, is(notNullValue()))
         }
 
         waitForAssert {
-            ThingHandler thingHandler = getThingHandler(WemoMakerHandler)
-            assertThat thingHandler, is(nullValue())
+            assertThat thing.getStatus(), is(ThingStatus.UNINITIALIZED)
         }
 
         waitForAssert {
-            assertThat "UPnP registry is not clear", upnpIOService.participants.keySet().size(), is(0)
+            assertThat upnpIOService.participants.size(), is(0)
         }
 
         itemRegistry.remove(DEFAULT_TEST_ITEM_NAME)

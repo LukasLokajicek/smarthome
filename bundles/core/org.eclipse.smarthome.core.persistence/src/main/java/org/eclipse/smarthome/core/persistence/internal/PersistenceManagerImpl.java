@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.persistence.internal;
 
@@ -43,6 +48,10 @@ import org.eclipse.smarthome.core.scheduler.ExpressionThreadPoolManager;
 import org.eclipse.smarthome.core.scheduler.ExpressionThreadPoolManager.ExpressionThreadPoolExecutor;
 import org.eclipse.smarthome.core.types.State;
 import org.eclipse.smarthome.core.types.UnDefType;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,9 +61,10 @@ import org.slf4j.LoggerFactory;
  * @author Kai Kreuzer - Initial contribution and API
  * @author Markus Rathgeb - Separation of persistence core and model, drop Quartz usage.
  */
+@Component(service = PersistenceManager.class, immediate = true)
 public class PersistenceManagerImpl implements PersistenceManager, ItemRegistryChangeListener, StateChangeListener {
 
-    private final Logger logger = LoggerFactory.getLogger(PersistenceManager.class);
+    private final Logger logger = LoggerFactory.getLogger(PersistenceManagerImpl.class);
 
     // the scheduler used for timer events
     private ExpressionThreadPoolExecutor scheduler;
@@ -77,6 +87,7 @@ public class PersistenceManagerImpl implements PersistenceManager, ItemRegistryC
         scheduler = null;
     }
 
+    @Reference
     protected void setItemRegistry(ItemRegistry itemRegistry) {
         this.itemRegistry = itemRegistry;
         itemRegistry.addRegistryChangeListener(this);
@@ -88,6 +99,7 @@ public class PersistenceManagerImpl implements PersistenceManager, ItemRegistryC
         this.itemRegistry = null;
     }
 
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
     protected void addPersistenceService(PersistenceService persistenceService) {
         logger.debug("Initializing {} persistence service.", persistenceService.getId());
         persistenceServices.put(persistenceService.getId(), persistenceService);
@@ -277,10 +289,10 @@ public class PersistenceManagerImpl implements PersistenceManager, ItemRegistryC
     /**
      * Creates and schedules a new quartz-job.
      *
-     * @param modelName the name of the model
+     * @param dbId the database id used by the persistence service
      * @param strategies a collection of strategies
      */
-    private void createTimers(final String modelName, List<SimpleStrategy> strategies) {
+    private void createTimers(final String dbId, List<SimpleStrategy> strategies) {
         for (SimpleStrategy strategy : strategies) {
             if (strategy instanceof SimpleCronStrategy) {
                 SimpleCronStrategy cronStrategy = (SimpleCronStrategy) strategy;
@@ -293,13 +305,13 @@ public class PersistenceManagerImpl implements PersistenceManager, ItemRegistryC
                     continue;
                 }
 
-                final PersistItemsJob job = new PersistItemsJob(this, modelName, cronStrategy.getName());
-                if (persistenceJobs.containsKey(modelName)) {
-                    persistenceJobs.get(modelName).add(job);
+                final PersistItemsJob job = new PersistItemsJob(this, dbId, cronStrategy.getName());
+                if (persistenceJobs.containsKey(dbId)) {
+                    persistenceJobs.get(dbId).add(job);
                 } else {
                     final Set<Runnable> jobs = new HashSet<>();
                     jobs.add(job);
-                    persistenceJobs.put(modelName, jobs);
+                    persistenceJobs.put(dbId, jobs);
                 }
 
                 scheduler.schedule(job, expression);
@@ -309,23 +321,23 @@ public class PersistenceManagerImpl implements PersistenceManager, ItemRegistryC
     }
 
     /**
-     * Delete all {@link Job}s of the group <code>persistModelName</code>
+     * Delete all {@link Job}s of the group <code>dbId</code>
      *
      * @throws SchedulerException if there is an internal Scheduler error.
      */
-    private void removeTimers(String persistModelName) {
-        if (!persistenceJobs.containsKey(persistModelName)) {
+    private void removeTimers(String dbId) {
+        if (!persistenceJobs.containsKey(dbId)) {
             return;
         }
-        for (final Runnable job : persistenceJobs.get(persistModelName)) {
+        for (final Runnable job : persistenceJobs.get(dbId)) {
             boolean success = scheduler.remove(job);
             if (success) {
-                logger.debug("Removed scheduled cron job for dbId '{}'", persistModelName);
+                logger.debug("Removed scheduled cron job for persistence service '{}'", dbId);
             } else {
-                logger.warn("Failed to delete cron job for dbId '{}'", persistModelName);
+                logger.warn("Failed to delete cron job for persistence service '{}'", dbId);
             }
         }
-        persistenceJobs.remove(persistModelName);
+        persistenceJobs.remove(dbId);
     }
 
     /*
@@ -372,9 +384,9 @@ public class PersistenceManagerImpl implements PersistenceManager, ItemRegistryC
     }
 
     @Override
-    public void stopEventHandling(String modelName) {
+    public void stopEventHandling(String dbId) {
         synchronized (persistenceServiceConfigs) {
-            removeTimers(modelName);
+            removeTimers(dbId);
         }
     }
 

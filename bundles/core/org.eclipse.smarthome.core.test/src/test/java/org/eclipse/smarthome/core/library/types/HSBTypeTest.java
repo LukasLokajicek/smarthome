@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.library.types;
 
@@ -16,6 +21,7 @@ import org.junit.Test;
 /**
  *
  * @author Chris Jackson - added fromRGB() test
+ * @author Stefan Triller - more tests for type conversions
  *
  */
 public class HSBTypeTest {
@@ -53,12 +59,6 @@ public class HSBTypeTest {
     private void compareHsbToRgbValues(String hsbValues, int red, int green, int blue) {
         HSBType hsb = new HSBType(hsbValues);
 
-        System.out.println("HSB INPUT: " + hsbValues);
-        System.out.println("RGB EXPECTED: " + red + "," + green + "," + blue);
-        System.out.println("RGB ACTUAL (0-100): " + hsb.getRed() + "," + hsb.getGreen() + "," + hsb.getBlue());
-        System.out.println("RGB ACTUAL (0-255): " + convertPercentToByte(hsb.getRed()) + ","
-                + convertPercentToByte(hsb.getGreen()) + "," + convertPercentToByte(hsb.getBlue()) + "\n");
-
         assertEquals(red, convertPercentToByte(hsb.getRed()));
         assertEquals(green, convertPercentToByte(hsb.getGreen()));
         assertEquals(blue, convertPercentToByte(hsb.getBlue()));
@@ -80,10 +80,6 @@ public class HSBTypeTest {
     private void compareRgbToHsbValues(String hsbValues, int red, int green, int blue) {
         HSBType hsb = new HSBType(hsbValues);
         HSBType hsbRgb = HSBType.fromRGB(red, green, blue);
-
-        System.out.println("HSB EXPECTED: " + hsbValues);
-        System.out.println(
-                "HSB ACTUAL  : " + hsbRgb.getHue() + "," + hsbRgb.getSaturation() + "," + hsbRgb.getBrightness());
 
         assertEquals(hsb.getHue(), hsbRgb.getHue());
         assertEquals(hsb.getSaturation(), hsbRgb.getSaturation());
@@ -111,4 +107,23 @@ public class HSBTypeTest {
         assertEquals(PercentType.ZERO, new HSBType("100,100,0").as(PercentType.class));
     }
 
+    @Test
+    public void testConversionToPointType() {
+        // should not be possible => null
+        assertEquals(null, new HSBType("100,100,100").as(PointType.class));
+    }
+
+    @Test
+    public void testConversionToXY() {
+        HSBType hsb = new HSBType("220,90,50");
+        PercentType[] xy = hsb.toXY();
+        assertEquals(new PercentType("16.969364"), xy[0]);
+        assertEquals(new PercentType("12.379659"), xy[1]);
+    }
+
+    @Test
+    public void testCreateFromXY() {
+        HSBType hsb = HSBType.fromXY(5f, 3f);
+        assertEquals(new HSBType("11,100,100"), hsb);
+    }
 }

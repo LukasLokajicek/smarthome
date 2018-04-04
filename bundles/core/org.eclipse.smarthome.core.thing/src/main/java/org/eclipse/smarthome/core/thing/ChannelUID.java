@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing;
 
@@ -34,10 +39,8 @@ public class ChannelUID extends UID {
     }
 
     /**
-     * @param thingUID
-     *            the unique identifier of the thing the channel belongs to
-     * @param id
-     *            the channel's id
+     * @param thingUID the unique identifier of the thing the channel belongs to
+     * @param id the channel's id
      */
     public ChannelUID(ThingUID thingUID, String id) {
         super(getArray(thingUID, null, id));
@@ -49,11 +52,9 @@ public class ChannelUID extends UID {
     }
 
     /**
-     * @param thingUID
-     *            the unique identifier of the thing the channel belongs to
+     * @param thingUID the unique identifier of the thing the channel belongs to
      * @param groupId the channel's group id
-     * @param id
-     *            the channel's id
+     * @param id the channel's id
      */
     public ChannelUID(ThingUID thingUID, String groupId, String id) {
         super(getArray(thingUID, groupId, id));
@@ -98,7 +99,6 @@ public class ChannelUID extends UID {
     }
 
     private static String[] getArray(ThingUID thingUID, String groupId, String id) {
-
         String[] result = new String[thingUID.getSegments().length + 1];
         for (int i = 0; i < thingUID.getSegments().length; i++) {
             result[i] = thingUID.getSegments()[i];

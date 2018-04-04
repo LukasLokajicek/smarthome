@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.firmware;
 
@@ -15,7 +20,7 @@ import java.util.Locale;
 
 import org.eclipse.smarthome.core.events.Event;
 import org.eclipse.smarthome.core.events.EventPublisher;
-import org.eclipse.smarthome.core.i18n.I18nProvider;
+import org.eclipse.smarthome.core.i18n.TranslationProvider;
 import org.eclipse.smarthome.core.thing.ThingUID;
 import org.eclipse.smarthome.core.thing.binding.firmware.FirmwareUID;
 import org.eclipse.smarthome.core.thing.binding.firmware.FirmwareUpdateHandler;
@@ -23,8 +28,6 @@ import org.eclipse.smarthome.core.thing.binding.firmware.ProgressCallback;
 import org.eclipse.smarthome.core.thing.binding.firmware.ProgressStep;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.FrameworkUtil;
-
-import com.google.common.base.Preconditions;
 
 /**
  * The callback implementation for the {@link ProgressCallback}.
@@ -34,14 +37,14 @@ import com.google.common.base.Preconditions;
  */
 final class ProgressCallbackImpl implements ProgressCallback {
 
-    private static String UPDATE_CANCELED_MESSAGE_KEY = "update-canceled";
+    private static final String UPDATE_CANCELED_MESSAGE_KEY = "update-canceled";
 
     /**
      * Handler instance is needed to retrieve the error messages from the correct bundle.
      */
     private final FirmwareUpdateHandler firmwareUpdateHandler;
     private final EventPublisher eventPublisher;
-    private final I18nProvider i18nProvider;
+    private final TranslationProvider i18nProvider;
     private final ThingUID thingUID;
     private final FirmwareUID firmwareUID;
     private final Locale locale;
@@ -61,7 +64,7 @@ final class ProgressCallbackImpl implements ProgressCallback {
     private InternalState state;
 
     ProgressCallbackImpl(FirmwareUpdateHandler firmwareUpdateHandler, EventPublisher eventPublisher,
-            I18nProvider i18nProvider, ThingUID thingUID, FirmwareUID firmwareUID, Locale locale) {
+            TranslationProvider i18nProvider, ThingUID thingUID, FirmwareUID firmwareUID, Locale locale) {
         this.firmwareUpdateHandler = firmwareUpdateHandler;
         this.eventPublisher = eventPublisher;
         this.i18nProvider = i18nProvider;
@@ -73,7 +76,9 @@ final class ProgressCallbackImpl implements ProgressCallback {
 
     @Override
     public void defineSequence(ProgressStep... sequence) {
-        Preconditions.checkArgument(sequence != null && sequence.length > 0, "Sequence must not be null or empty.");
+        if (sequence == null || sequence.length == 0) {
+            throw new IllegalArgumentException("Sequence must not be null or empty.");
+        }
         this.sequence = Collections.unmodifiableCollection(Arrays.asList(sequence));
         progressIterator = this.sequence.iterator();
         this.state = InternalState.INITIALIZED;
@@ -81,7 +86,9 @@ final class ProgressCallbackImpl implements ProgressCallback {
 
     @Override
     public void next() {
-        Preconditions.checkState(this.state != InternalState.FINISHED, "Update is finished.");
+        if (this.state == InternalState.FINISHED) {
+            throw new IllegalStateException("Update is finished.");
+        }
         if (this.state == InternalState.PENDING) {
             state = InternalState.RUNNING;
             postProgressInfoEvent();
@@ -97,9 +104,12 @@ final class ProgressCallbackImpl implements ProgressCallback {
 
     @Override
     public void failed(String errorMessageKey, Object... arguments) {
-        Preconditions.checkState(this.state != InternalState.FINISHED, "Update is finished.");
-        Preconditions.checkArgument(errorMessageKey != null && !errorMessageKey.isEmpty(),
-                "The error message key must not be null or empty.");
+        if (this.state == InternalState.FINISHED) {
+            throw new IllegalStateException("Update is finished.");
+        }
+        if (errorMessageKey == null || errorMessageKey.isEmpty()) {
+            throw new IllegalArgumentException("The error message key must not be null or empty.");
+        }
         this.state = InternalState.FINISHED;
         String errorMessage = getMessage(firmwareUpdateHandler.getClass(), errorMessageKey, arguments);
         postResultInfoEvent(FirmwareUpdateResult.ERROR, errorMessage);
@@ -107,23 +117,32 @@ final class ProgressCallbackImpl implements ProgressCallback {
 
     @Override
     public void success() {
-        Preconditions.checkState(this.state != InternalState.FINISHED, "Update is finished.");
-        Preconditions.checkState((this.progress != null && this.progress == 100) || (this.progressIterator!=null && !progressIterator.hasNext()),
-                "Update can't be successfully finished until progress is 100% or last progress step is reached");
+        if (this.state == InternalState.FINISHED) {
+            throw new IllegalStateException("Update is finished.");
+        }
+        if ((this.progress == null || this.progress < 100)
+                && (this.progressIterator == null || progressIterator.hasNext())) {
+            throw new IllegalStateException(
+                    "Update can't be successfully finished until progress is 100% or last progress step is reached");
+        }
         this.state = InternalState.FINISHED;
         postResultInfoEvent(FirmwareUpdateResult.SUCCESS, null);
     }
 
     @Override
     public void pending() {
-        Preconditions.checkState(this.state != InternalState.FINISHED, "Update is finished.");
+        if (this.state == InternalState.FINISHED) {
+            throw new IllegalStateException("Update is finished.");
+        }
         this.state = InternalState.PENDING;
         postProgressInfoEvent();
     }
 
     @Override
     public void canceled() {
-        Preconditions.checkState(this.state != InternalState.FINISHED, "Update is finished.");
+        if (this.state == InternalState.FINISHED) {
+            throw new IllegalStateException("Update is finished.");
+        }
         this.state = InternalState.FINISHED;
         String cancelMessage = getMessage(this.getClass(), UPDATE_CANCELED_MESSAGE_KEY);
         postResultInfoEvent(FirmwareUpdateResult.CANCELED, cancelMessage);
@@ -131,8 +150,12 @@ final class ProgressCallbackImpl implements ProgressCallback {
 
     @Override
     public void update(int progress) {
-        Preconditions.checkState(this.state != InternalState.FINISHED, "Update is finished.");
-        Preconditions.checkArgument(progress >= 0 && progress <= 100, "The progress must be between 0 and 100.");
+        if (this.state == InternalState.FINISHED) {
+            throw new IllegalStateException("Update is finished.");
+        }
+        if (progress < 0 || progress > 100) {
+            throw new IllegalArgumentException("The progress must be between 0 and 100.");
+        }
         if (this.progress == null) {
             updateProgress(progress);
         } else if (progress < this.progress) {

@@ -1,15 +1,19 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation;
 
 import java.util.Collections;
 import java.util.Map;
-import java.util.Set;
 
 import org.eclipse.smarthome.automation.type.ConditionType;
 import org.eclipse.smarthome.automation.type.Input;
@@ -47,11 +51,11 @@ public class Condition extends Module {
     }
 
     /**
-     * This method is used to get input connections of the Condition. The
-     * connections are links between {@link Input}s of the current {@link Module} and {@link Output}s of other
+     * This method is used to get input connections of the Condition. The connections
+     * are links between {@link Input}s of the current {@link Module} and {@link Output}s of other
      * {@link Module}s.
      *
-     * @return a {@link Map} of input connections.
+     * @return map that contains the inputs of this condition.
      */
     public Map<String, String> getInputs() {
         return inputs != null ? inputs : Collections.<String, String> emptyMap();
@@ -60,7 +64,7 @@ public class Condition extends Module {
     /**
      * This method is used to connect {@link Input}s of the Condition to {@link Output}s of other {@link Module}s.
      *
-     * @param connections a {@link Set} of input {@link Input}s.
+     * @param inputs map that contains the inputs for this condition.
      */
     public void setInputs(Map<String, String> inputs) {
         if (inputs != null) {

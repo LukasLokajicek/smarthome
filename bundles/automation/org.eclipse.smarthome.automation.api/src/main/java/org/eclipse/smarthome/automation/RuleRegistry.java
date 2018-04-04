@@ -1,13 +1,19 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation;
 
 import java.util.Collection;
+import java.util.Map;
 
 import org.eclipse.smarthome.core.common.registry.Registry;
 
@@ -15,10 +21,10 @@ import org.eclipse.smarthome.core.common.registry.Registry;
  * The {@link RuleRegistry} provides basic functionality for managing {@link Rule}s.
  * It can be used to
  * <ul>
- * <li>Add Rules with the {@link #add(Rule)} method.</li>
+ * <li>Add Rules with the {@link Registry#add(Object)} method.</li>
  * <li>Get the existing rules with the {@link #getByTag(String)}, {@link #getByTags(String[])} methods.</li>
- * <li>Update the existing rules with the {@link #update(Rule)} method.</li>
- * <li>Remove Rules with the {@link #remove(String)} method.</li>
+ * <li>Update the existing rules with the {@link Registry#update(Object)} method.</li>
+ * <li>Remove Rules with the {@link Registry#remove(Object)} method.</li>
  * <li>Manage the state (<b>enabled</b> or <b>disabled</b>) of the Rules:
  * <ul>
  * <li>A newly added Rule is always <b>enabled</b>.</li>
@@ -106,13 +112,23 @@ public interface RuleRegistry extends Registry<Rule, String> {
     public Boolean isEnabled(String ruleUID);
 
     /**
-     * The method "runNow(ruleUID)" skips triggers&conditions and directly executes the actions of the rule.
+     * The method "runNow(ruleUID)" skips the triggers and the conditions and directly executes the actions of the rule.
      * This should always be possible unless an action has a mandatory input that is linked to a trigger.
      * In that case the action is skipped and the RuleEngine continues execution of rest actions.
      *
-     * @param ruleUID id of rule whose actions have to be executed.
+     * @param ruleUID id of rule whose actions have to be executed
      *
      */
     public void runNow(String ruleUID);
+
+    /**
+     * Same as {@link RuleRegistry#runNow(String)} with additional option to enable/disable evaluation of
+     * conditions defined in the target rule. The context can be set here, too but also might be null.
+     *
+     * @param ruleUID id of rule whose actions have to be executed
+     * @param considerConditions if <code>true</code> the conditions will be checked
+     * @param context the context that is passed to the conditions and the actions
+     */
+    public void runNow(String ruleUID, boolean considerConditions, Map<String, Object> context);
 
 }

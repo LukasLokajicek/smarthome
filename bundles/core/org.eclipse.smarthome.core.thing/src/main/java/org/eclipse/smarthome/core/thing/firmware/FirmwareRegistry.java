@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.firmware;
 
@@ -11,6 +16,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -19,11 +25,12 @@ import org.eclipse.smarthome.core.i18n.LocaleProvider;
 import org.eclipse.smarthome.core.thing.ThingTypeUID;
 import org.eclipse.smarthome.core.thing.binding.firmware.Firmware;
 import org.eclipse.smarthome.core.thing.binding.firmware.FirmwareUID;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
 
 /**
  * The {@link FirmwareRegistry} is registered as an OSGi service and is responsible for tracking all
@@ -37,6 +44,7 @@ import com.google.common.collect.Iterables;
  *
  * @author Thomas Höfer - Initial contribution
  */
+@Component(immediate = true, service = FirmwareRegistry.class)
 public final class FirmwareRegistry {
 
     private final Logger logger = LoggerFactory.getLogger(FirmwareRegistry.class);
@@ -49,9 +57,7 @@ public final class FirmwareRegistry {
      * Returns the firmware for the given UID using the locale provided by the {@link LocaleProvider}.
      *
      * @param firmwareUID the firmware UID (must not be null)
-     *
      * @return the corresponding firmware or null if no firmware was found
-     *
      * @throws NullPointerException if given firmware UID is null
      */
     public Firmware getFirmware(FirmwareUID firmwareUID) {
@@ -63,13 +69,11 @@ public final class FirmwareRegistry {
      *
      * @param firmwareUID the firmware UID (must not be null)
      * @param locale the locale to be used (if null then the locale provided by the {@link LocaleProvider} is used)
-     *
      * @return the corresponding firmware or null if no firmware was found
-     *
      * @throws NullPointerException if given firmware UID is null
      */
     public Firmware getFirmware(FirmwareUID firmwareUID, Locale locale) {
-        Preconditions.checkNotNull(firmwareUID, "Firmware UID must not be null");
+        Objects.requireNonNull(firmwareUID, "Firmware UID must not be null.");
 
         Locale loc = locale != null ? locale : localeProvider.getLocale();
 
@@ -80,9 +84,9 @@ public final class FirmwareRegistry {
                     return firmware;
                 }
             } catch (Exception e) {
-                logger.warn(String.format(
-                        "Unexpected exception occurred for firmware provider %s while getting firmware for firmware UID %s.",
-                        firmwareProvider.getClass().getSimpleName(), firmwareUID), e);
+                logger.warn(
+                        "Unexpected exception occurred for firmware provider {} while getting firmware for firmware UID {}.",
+                        firmwareProvider.getClass().getSimpleName(), firmwareUID, e);
             }
         }
 
@@ -93,9 +97,7 @@ public final class FirmwareRegistry {
      * Returns the latest firmware for the given thing type UID using the locale provided by the {@link LocaleProvider}.
      *
      * @param thingTypeUID the thing type UID (must not be null)
-     *
      * @return the corresponding latest firmware or null if no firmware was found
-     *
      * @throws NullPointerException if given thing type UID is null
      */
     public Firmware getLatestFirmware(ThingTypeUID thingTypeUID) {
@@ -107,14 +109,12 @@ public final class FirmwareRegistry {
      *
      * @param thingTypeUID the thing type UID (must not be null)
      * @param locale the locale to be used (if null then the locale provided by the {@link LocaleProvider} is used)
-     *
      * @return the corresponding latest firmware or null if no firmware was found
-     *
      * @throws NullPointerException if given thing type UID is null
      */
     public Firmware getLatestFirmware(ThingTypeUID thingTypeUID, Locale locale) {
         Locale loc = locale != null ? locale : localeProvider.getLocale();
-        return Iterables.getFirst(getFirmwares((thingTypeUID), loc), null);
+        return getFirmwares((thingTypeUID), loc).stream().findFirst().orElse(null);
     }
 
     /**
@@ -123,9 +123,7 @@ public final class FirmwareRegistry {
      * element in the collection.
      *
      * @param thingTypeUID the thing type UID for which the firmwares are to be provided (not null)
-     *
      * @return the collection of available firmwares for the given thing type UID (not null)
-     *
      * @throws NullPointerException if given thing type UID is null
      */
     public Collection<Firmware> getFirmwares(ThingTypeUID thingTypeUID) {
@@ -138,13 +136,11 @@ public final class FirmwareRegistry {
      *
      * @param thingTypeUID the thing type UID for which the firmwares are to be provided (not null)
      * @param locale the locale to be used (if null then the locale provided by the {@link LocaleProvider} is used)
-     *
      * @return the collection of available firmwares for the given thing type UID (not null)
-     *
      * @throws NullPointerException if given thing type UID is null
      */
     public Collection<Firmware> getFirmwares(ThingTypeUID thingTypeUID, Locale locale) {
-        Preconditions.checkNotNull(thingTypeUID, "Thing type UID must not be null");
+        Objects.requireNonNull(thingTypeUID, "Thing type UID must not be null.");
 
         Locale loc = locale != null ? locale : localeProvider.getLocale();
 
@@ -156,15 +152,16 @@ public final class FirmwareRegistry {
                     firmwares.addAll(result);
                 }
             } catch (Exception e) {
-                logger.warn(String.format(
-                        "Unexpected exception occurred for firmware provider %s while getting firmwares for thing type UID %s.",
-                        firmwareProvider.getClass().getSimpleName(), thingTypeUID), e);
+                logger.warn(
+                        "Unexpected exception occurred for firmware provider {} while getting firmwares for thing type UID {}.",
+                        firmwareProvider.getClass().getSimpleName(), thingTypeUID, e);
             }
         }
 
         return Collections.unmodifiableCollection(firmwares);
     }
 
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
     protected void addFirmwareProvider(FirmwareProvider firmwareProvider) {
         firmwareProviders.add(firmwareProvider);
     }
@@ -173,6 +170,7 @@ public final class FirmwareRegistry {
         firmwareProviders.remove(firmwareProvider);
     }
 
+    @Reference
     protected void setLocaleProvider(final LocaleProvider localeProvider) {
         this.localeProvider = localeProvider;
     }

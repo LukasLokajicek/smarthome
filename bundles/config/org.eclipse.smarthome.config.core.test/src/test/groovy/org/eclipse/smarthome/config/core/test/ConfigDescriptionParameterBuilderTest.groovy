@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.config.core.test
 
@@ -28,6 +33,7 @@ class ConfigDescriptionParameterBuilderTest {
         def max = new BigDecimal(4.0);
         def stepSize = new BigDecimal(1.0);
         def pattern = "pattern"
+        def verify = true;
         def required = false
         def readOnly = true
         def multiple = false
@@ -67,6 +73,7 @@ class ConfigDescriptionParameterBuilderTest {
                 .withMultipleLimit(multipleLimit)
                 .withUnit(unit)
                 .withUnitLabel(unitLabel)
+                .withVerify(verify)
                 .build();
         assertThat param.getMinimum(), is(min)
         assertThat param.getMaximum(), is(max)
@@ -85,6 +92,7 @@ class ConfigDescriptionParameterBuilderTest {
         assertFalse param.isRequired()
         assertTrue param.isReadOnly()
         assertFalse param.isMultiple()
+        assertTrue param.isVerifyable()
         assertFalse param.isAdvanced()
         assertTrue param.getLimitToOptions()
 
@@ -102,6 +110,7 @@ class ConfigDescriptionParameterBuilderTest {
                 .withRequired(null)
                 .withReadOnly(null)
                 .withMultiple(null)
+                .withVerify(null)
                 .withContext(null)
                 .withDefault(null)
                 .withLabel(null)
@@ -136,17 +145,17 @@ class ConfigDescriptionParameterBuilderTest {
         assertFalse param.isReadOnly()
         assertFalse param.isMultiple()
         assertFalse param.isAdvanced()
-        assertFalse param.getLimitToOptions()
+        assertTrue param.getLimitToOptions()
         def param2 = new ConfigDescriptionParameter("Dummy", Type.BOOLEAN, null, null,
                 null, null, null, null, null, null,
                 null, null, null, null,
                 null, null, null,null,
-                null, null, null)
+                null, null, null, null)
         assertFalse param2.isRequired()
         assertFalse param2.isReadOnly()
         assertFalse param2.isMultiple()
         assertFalse param2.isAdvanced()
-        assertFalse param2.getLimitToOptions()
+        assertTrue param2.getLimitToOptions()
         assertTrue param2.getFilterCriteria().isEmpty()
         assertTrue param2.getOptions().isEmpty()
     }

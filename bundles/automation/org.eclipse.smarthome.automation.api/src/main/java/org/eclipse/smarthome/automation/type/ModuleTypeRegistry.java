@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.type;
 
@@ -29,6 +34,7 @@ public interface ModuleTypeRegistry extends Registry<ModuleType, String> {
      *
      * @param moduleTypeUID the an unique id in scope of registered ModuleTypes
      * @param locale used for localization of the ModuleType
+     * @param <T> the type of the required object
      * @return ModuleType instance or null.
      */
     public <T extends ModuleType> T get(String moduleTypeUID, Locale locale);
@@ -38,6 +44,7 @@ public interface ModuleTypeRegistry extends Registry<ModuleType, String> {
      *
      * @param moduleTypeTag specifies the filter for getting the ModuleTypes, if
      *            it is <code>null</code> then returns all ModuleTypes.
+     * @param <T> the type of the required object
      * @return the ModuleTypes, which correspond to the specified filter.
      */
     public <T extends ModuleType> Collection<T> getByTag(String moduleTypeTag);
@@ -48,6 +55,7 @@ public interface ModuleTypeRegistry extends Registry<ModuleType, String> {
      * @param moduleTypeTag specifies the filter for getting the ModuleTypes, if
      *            it is <code>null</code> then returns all ModuleTypes.
      * @param locale used for localization of the ModuleType
+     * @param <T> the type of the required object
      * @return the ModuleTypes, which correspond to the specified filter.
      */
     public <T extends ModuleType> Collection<T> getByTag(String moduleTypeTag, Locale locale);
@@ -57,6 +65,7 @@ public interface ModuleTypeRegistry extends Registry<ModuleType, String> {
      *
      * @param tags specifies the filter for getting the ModuleTypes, if
      *            it is <code>null</code> then returns all ModuleTypes.
+     * @param <T> the type of the required object
      * @return the ModuleTypes, which correspond to the filter.
      */
     public <T extends ModuleType> Collection<T> getByTags(String... tags);
@@ -67,6 +76,7 @@ public interface ModuleTypeRegistry extends Registry<ModuleType, String> {
      * @param locale used for localization of the ModuleType
      * @param moduleTypeTag specifies the filter for getting the ModuleTypes, if
      *            it is <code>null</code> then returns all ModuleTypes.
+     * @param <T> the type of the required object
      * @return the ModuleTypes, which correspond to the filter.
      */
     public <T extends ModuleType> Collection<T> getByTags(Locale locale, String... tags);

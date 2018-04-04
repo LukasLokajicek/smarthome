@@ -1,23 +1,29 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.hue.handler;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
+import org.eclipse.smarthome.binding.hue.internal.State;
+import org.eclipse.smarthome.binding.hue.internal.State.AlertMode;
+import org.eclipse.smarthome.binding.hue.internal.State.Effect;
+import org.eclipse.smarthome.binding.hue.internal.StateUpdate;
 import org.eclipse.smarthome.core.library.types.DecimalType;
 import org.eclipse.smarthome.core.library.types.HSBType;
 import org.eclipse.smarthome.core.library.types.IncreaseDecreaseType;
 import org.eclipse.smarthome.core.library.types.OnOffType;
 import org.eclipse.smarthome.core.library.types.PercentType;
 import org.eclipse.smarthome.core.library.types.StringType;
-
-import org.eclipse.smarthome.binding.hue.internal.State;
-import org.eclipse.smarthome.binding.hue.internal.State.AlertMode;
-import org.eclipse.smarthome.binding.hue.internal.State.Effect;
-import org.eclipse.smarthome.binding.hue.internal.StateUpdate;
 
 /**
  * The {@link LightStateConverter} is responsible for mapping Eclipse SmartHome
@@ -31,6 +37,7 @@ import org.eclipse.smarthome.binding.hue.internal.StateUpdate;
  * @author Denis Dudnik - switched to internally integrated source of Jue library, minor code cleanup
  *
  */
+@NonNullByDefault
 public class LightStateConverter {
 
     private static final int HUE_FACTOR = 182;
@@ -60,8 +67,7 @@ public class LightStateConverter {
     /**
      * Transforms the given {@link HSBType} into a light state.
      *
-     * @param hsbType
-     *            HSB type
+     * @param hsbType HSB type
      * @return light state representing the {@link HSBType}.
      */
     public static StateUpdate toColorLightState(HSBType hsbType) {
@@ -80,8 +86,7 @@ public class LightStateConverter {
      * Transforms the given {@link OnOffType} into a light state containing the
      * 'on' value.
      *
-     * @param onOffType
-     *            on or off state
+     * @param onOffType on or off state
      * @return light state containing the 'on' value
      */
     public static StateUpdate toOnOffLightState(OnOffType onOffType) {
@@ -92,8 +97,7 @@ public class LightStateConverter {
      * Transforms the given {@link PercentType} into a light state containing
      * the brightness and the 'on' value represented by {@link PercentType}.
      *
-     * @param percentType
-     *            brightness represented as {@link PercentType}
+     * @param percentType brightness represented as {@link PercentType}
      * @return light state containing the brightness and the 'on' value
      */
     public static StateUpdate toBrightnessLightState(PercentType percentType) {
@@ -111,10 +115,8 @@ public class LightStateConverter {
      * Adjusts the given brightness using the {@link IncreaseDecreaseType} and
      * returns the updated value.
      *
-     * @param command
-     *            The {@link IncreaseDecreaseType} to be used
-     * @param currentBrightness
-     *            The current brightness
+     * @param command The {@link IncreaseDecreaseType} to be used
+     * @param currentBrightness The current brightness
      * @return The adjusted brightness value
      */
     public static int toAdjustedBrightness(IncreaseDecreaseType command, int currentBrightness) {
@@ -131,8 +133,7 @@ public class LightStateConverter {
      * Transforms the given {@link PercentType} into a light state containing
      * the color temperature represented by {@link PercentType}.
      *
-     * @param percentType
-     *            color temperature represented as {@link PercentType}
+     * @param percentType color temperature represented as {@link PercentType}
      * @return light state containing the color temperature
      */
     public static StateUpdate toColorTemperatureLightState(PercentType percentType) {
@@ -144,10 +145,8 @@ public class LightStateConverter {
     /**
      * Adjusts the given color temperature using the {@link IncreaseDecreaseType} and returns the updated value.
      *
-     * @param type
-     *            The {@link IncreaseDecreaseType} to be used
-     * @param currentColorTemp
-     *            The current color temperature
+     * @param type The {@link IncreaseDecreaseType} to be used
+     * @param currentColorTemp The current color temperature
      * @return The adjusted color temperature value
      */
     public static int toAdjustedColorTemp(IncreaseDecreaseType type, int currentColorTemp) {
@@ -164,8 +163,7 @@ public class LightStateConverter {
      * Transforms Hue Light {@link State} into {@link PercentType} representing
      * the color temperature.
      *
-     * @param lightState
-     *            light state
+     * @param lightState light state
      * @return percent type representing the color temperature
      */
     public static PercentType toColorTemperaturePercentType(State lightState) {
@@ -178,8 +176,7 @@ public class LightStateConverter {
      * Transforms Hue Light {@link State} into {@link PercentType} representing
      * the brightness.
      *
-     * @param lightState
-     *            light state
+     * @param lightState light state
      * @return percent type representing the brightness
      */
     public static PercentType toBrightnessPercentType(State lightState) {
@@ -190,8 +187,7 @@ public class LightStateConverter {
     /**
      * Transforms {@link State} into {@link StringType} representing the {@link AlertMode}.
      *
-     * @param lightState
-     *            light state.
+     * @param lightState light state.
      * @return string type representing the alert mode.
      */
     public static StringType toAlertStringType(State lightState) {
@@ -202,8 +198,7 @@ public class LightStateConverter {
      * Transforms Hue Light {@link State} into {@link HSBType} representing the
      * color.
      *
-     * @param lightState
-     *            light state
+     * @param lightState light state
      * @return HSB type representing the color
      */
     public static HSBType toHSBType(State lightState) {
@@ -215,16 +210,14 @@ public class LightStateConverter {
         saturationInPercent = restrictToBounds(saturationInPercent);
         brightnessInPercent = restrictToBounds(brightnessInPercent);
 
-        return new HSBType(new DecimalType(hue / HUE_FACTOR),
-                new PercentType(saturationInPercent),
+        return new HSBType(new DecimalType(hue / HUE_FACTOR), new PercentType(saturationInPercent),
                 new PercentType(brightnessInPercent));
     }
 
     /**
      * Transforms the given {@link StringType} into a light state containing the {@link AlertMode} to be triggered.
      *
-     * @param alertType
-     *            {@link StringType} representing the required {@link AlertMode} . <br>
+     * @param alertType {@link StringType} representing the required {@link AlertMode} . <br>
      *            Supported values are:
      *            <ul>
      *            <li>{@value #ALERT_MODE_NONE}.
@@ -234,7 +227,7 @@ public class LightStateConverter {
      * @return light state containing the {@link AlertMode} or <b><code>null </code></b> if the provided
      *         {@link StringType} represents unsupported mode.
      */
-    public static StateUpdate toAlertState(StringType alertType) {
+    public static @Nullable StateUpdate toAlertState(StringType alertType) {
         AlertMode alertMode;
 
         switch (alertType.toString()) {
@@ -258,8 +251,7 @@ public class LightStateConverter {
      * {@link OnOffType#ON} will result in {@link Effect#COLORLOOP}. {@link OnOffType#OFF} will result in
      * {@link Effect#NONE}.
      *
-     * @param onOffType
-     *            on or off state
+     * @param onOffType on or off state
      * @return light state containing the {@link Effect} value
      */
     public static StateUpdate toOnOffEffectState(OnOffType onOffType) {

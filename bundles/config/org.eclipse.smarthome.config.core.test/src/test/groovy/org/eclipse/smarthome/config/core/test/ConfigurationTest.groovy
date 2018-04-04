@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.config.core.test
 
@@ -88,5 +93,29 @@ class ConfigurationTest {
         configuration.setProperties(newProperties)
 
         assertThat configuration.get("intField"), is(equalTo(null))
+    }
+
+    @Test
+    void 'assert toString handles null values gracefully'() {
+        def properties = new HashMap([
+            stringField: null
+        ]);
+        def configuration = new Configuration(properties)
+        def res = configuration.toString()
+        assertThat res.contains("type=?"), is(true)
+    }
+
+    @Test
+    void 'assert normalization in setProperties'() {
+        Configuration configuration = new Configuration()
+        configuration.setProperties(["intField" : 1])
+        assertThat configuration.get("intField"), is(equalTo(BigDecimal.ONE))
+    }
+
+    @Test
+    void 'assert normalization in put'() {
+        Configuration configuration = new Configuration()
+        configuration.put("intField", 1)
+        assertThat configuration.get("intField"), is(equalTo(BigDecimal.ONE))
     }
 }

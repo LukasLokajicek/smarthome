@@ -1,15 +1,23 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.events;
 
+import java.util.LinkedList;
 import java.util.List;
+
 import org.eclipse.smarthome.core.events.AbstractEventFactory;
 import org.eclipse.smarthome.core.events.Event;
+import org.eclipse.smarthome.core.events.EventFactory;
 import org.eclipse.smarthome.core.thing.ChannelUID;
 import org.eclipse.smarthome.core.thing.Thing;
 import org.eclipse.smarthome.core.thing.ThingStatusInfo;
@@ -17,8 +25,8 @@ import org.eclipse.smarthome.core.thing.ThingUID;
 import org.eclipse.smarthome.core.thing.dto.ThingDTO;
 import org.eclipse.smarthome.core.thing.dto.ThingDTOMapper;
 import org.eclipse.smarthome.core.types.Type;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
+import org.osgi.service.component.annotations.Component;
+
 import com.google.common.collect.Sets;
 
 /**
@@ -27,18 +35,19 @@ import com.google.common.collect.Sets;
  * @author Stefan Bußweiler - Initial contribution
  * @author Dennis Nobel - Added status changed event
  */
+@Component(immediate = true, service = EventFactory.class)
 public class ThingEventFactory extends AbstractEventFactory {
-    private static final String THING_STATUS_INFO_EVENT_TOPIC = "smarthome/things/{thingUID}/status";
+    static final String THING_STATUS_INFO_EVENT_TOPIC = "smarthome/things/{thingUID}/status";
 
-    private static final String THING_STATUS_INFO_CHANGED_EVENT_TOPIC = "smarthome/things/{thingUID}/statuschanged";
+    static final String THING_STATUS_INFO_CHANGED_EVENT_TOPIC = "smarthome/things/{thingUID}/statuschanged";
 
-    private static final String THING_ADDED_EVENT_TOPIC = "smarthome/things/{thingUID}/added";
+    static final String THING_ADDED_EVENT_TOPIC = "smarthome/things/{thingUID}/added";
 
-    private static final String THING_REMOVED_EVENT_TOPIC = "smarthome/things/{thingUID}/removed";
+    static final String THING_REMOVED_EVENT_TOPIC = "smarthome/things/{thingUID}/removed";
 
-    private static final String THING_UPDATED_EVENT_TOPIC = "smarthome/things/{thingUID}/updated";
+    static final String THING_UPDATED_EVENT_TOPIC = "smarthome/things/{thingUID}/updated";
 
-    private static final String CHANNEL_TRIGGERED_EVENT_TOPIC = "smarthome/channels/{channelUID}/triggered";
+    static final String CHANNEL_TRIGGERED_EVENT_TOPIC = "smarthome/channels/{channelUID}/triggered";
 
     /**
      * Constructs a new ThingEventFactory.
@@ -168,14 +177,12 @@ public class ThingEventFactory extends AbstractEventFactory {
      *
      * @param thingUID the thing UID
      * @param thingStatusInfo the thing status info object
-     *
      * @return the created thing status info event
-     *
      * @throws IllegalArgumentException if thingUID or thingStatusInfo is null
      */
     public static ThingStatusInfoEvent createStatusInfoEvent(ThingUID thingUID, ThingStatusInfo thingStatusInfo) {
-        Preconditions.checkArgument(thingUID != null, "The argument 'thingUID' must not be null.");
-        Preconditions.checkArgument(thingStatusInfo != null, "The argument 'thingStatusInfo' must not be null.");
+        checkNotNull(thingUID, "thingUID");
+        checkNotNull(thingStatusInfo, "thingStatusInfo");
 
         String topic = buildTopic(THING_STATUS_INFO_EVENT_TOPIC, thingUID);
         String payload = serializePayload(thingStatusInfo);
@@ -189,16 +196,14 @@ public class ThingEventFactory extends AbstractEventFactory {
      * @param thingUID the thing UID
      * @param thingStatusInfo the thing status info object
      * @param oldThingStatusInfo the old thing status info object
-     *
      * @return the created thing status info changed event
-     *
      * @throws IllegalArgumentException if thingUID or thingStatusInfo is null
      */
     public static ThingStatusInfoChangedEvent createStatusInfoChangedEvent(ThingUID thingUID,
             ThingStatusInfo thingStatusInfo, ThingStatusInfo oldThingStatusInfo) {
-        Preconditions.checkArgument(thingUID != null, "The argument 'thingUID' must not be null.");
-        Preconditions.checkArgument(thingStatusInfo != null, "The argument 'thingStatusInfo' must not be null.");
-        Preconditions.checkArgument(oldThingStatusInfo != null, "The argument 'oldThingStatusInfo' must not be null.");
+        checkNotNull(thingUID, "thingUID");
+        checkNotNull(thingStatusInfo, "thingStatusInfo");
+        checkNotNull(oldThingStatusInfo, "oldThingStatusInfo");
 
         String topic = buildTopic(THING_STATUS_INFO_CHANGED_EVENT_TOPIC, thingUID);
         String payload = serializePayload(new ThingStatusInfo[] { thingStatusInfo, oldThingStatusInfo });
@@ -209,9 +214,7 @@ public class ThingEventFactory extends AbstractEventFactory {
      * Creates a thing added event.
      *
      * @param thing the thing
-     *
      * @return the created thing added event
-     *
      * @throws IllegalArgumentException if thing is null
      */
     public static ThingAddedEvent createAddedEvent(Thing thing) {
@@ -226,9 +229,7 @@ public class ThingEventFactory extends AbstractEventFactory {
      * Creates a thing removed event.
      *
      * @param thing the thing
-     *
      * @return the created thing removed event
-     *
      * @throws IllegalArgumentException if thing is null
      */
     public static ThingRemovedEvent createRemovedEvent(Thing thing) {
@@ -244,9 +245,7 @@ public class ThingEventFactory extends AbstractEventFactory {
      *
      * @param thing the thing
      * @param oldThing the old thing
-     *
      * @return the created thing updated event
-     *
      * @throws IllegalArgumentException if thing or oldThing is null
      */
     public static ThingUpdatedEvent createUpdateEvent(Thing thing, Thing oldThing) {
@@ -255,7 +254,7 @@ public class ThingEventFactory extends AbstractEventFactory {
         String topic = buildTopic(THING_UPDATED_EVENT_TOPIC, thing.getUID());
         ThingDTO thingDTO = map(thing);
         ThingDTO oldThingDTO = map(oldThing);
-        List<ThingDTO> thingDTOs = Lists.newLinkedList();
+        List<ThingDTO> thingDTOs = new LinkedList<>();
         thingDTOs.add(thingDTO);
         thingDTOs.add(oldThingDTO);
         String payload = serializePayload(thingDTOs);
@@ -263,8 +262,8 @@ public class ThingEventFactory extends AbstractEventFactory {
     }
 
     private static void assertValidArgument(Thing thing) {
-        Preconditions.checkArgument(thing != null, "The argument 'thing' must not be null.");
-        Preconditions.checkArgument(thing.getUID() != null, "The thingUID of a thing must not be null.");
+        checkNotNull(thing, "thing");
+        checkNotNull(thing.getUID(), "thingUID of the thing");
     }
 
     private static String buildTopic(String topic, ThingUID thingUID) {

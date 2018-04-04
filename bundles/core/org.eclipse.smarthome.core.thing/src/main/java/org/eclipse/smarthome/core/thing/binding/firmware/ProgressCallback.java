@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.binding.firmware;
 
@@ -42,7 +47,6 @@ public interface ProgressCallback {
      *
      * @param sequence the progress steps describing the sequence of the firmware update process (must not be null
      *            or empty)
-     *
      * @throws IllegalArgumentException if given sequence is null or empty
      */
     void defineSequence(ProgressStep... sequence);
@@ -68,7 +72,6 @@ public interface ProgressCallback {
      *
      * @param errorMessageKey the key of the error message to be internationalized (must not be null or empty)
      * @param arguments the arguments to be injected into the internationalized error message (can be null)
-     *
      * @throws IllegalArgumentException if given error message key is null or empty
      * @throws IllegalStateException if update is already finished
      */
@@ -101,7 +104,6 @@ public interface ProgressCallback {
      * previous defined sequence.
      * 
      * @param progress the progress between 0 and 100
-     * 
      * @throws IllegalArgumentException if given progress is < 0 or > 100
      * @throws IllegalArgumentException if given progress is smaller than old progress
      * @throws IllegalStateException if update is finished

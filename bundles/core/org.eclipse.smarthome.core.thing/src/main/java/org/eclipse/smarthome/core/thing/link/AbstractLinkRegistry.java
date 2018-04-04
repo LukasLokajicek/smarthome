@@ -1,15 +1,18 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.link;
 
-import java.util.Collection;
 import java.util.LinkedHashSet;
-import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.smarthome.core.common.registry.AbstractRegistry;
@@ -36,16 +39,13 @@ public abstract class AbstractLinkRegistry<L extends AbstractLink, P extends Pro
      * Returns if an item for a given item name is linked to a channel or thing for a
      * given UID.
      *
-     * @param itemName
-     *            item name
-     * @param uid
-     *            UID
+     * @param itemName item name
+     * @param uid UID
      * @return true if linked, false otherwise
      */
     public boolean isLinked(String itemName, UID uid) {
-
         for (AbstractLink link : getAll()) {
-            if (link.getUID().equals(uid) && link.getItemName().equals(itemName)) {
+            if (link.getLinkedUID().equals(uid) && link.getItemName().equals(itemName)) {
                 return true;
             }
         }
@@ -62,7 +62,7 @@ public abstract class AbstractLinkRegistry<L extends AbstractLink, P extends Pro
     public Set<String> getLinkedItemNames(UID uid) {
         Set<String> linkedItems = new LinkedHashSet<>();
         for (AbstractLink link : getAll()) {
-            if (link.getUID().equals(uid)) {
+            if (link.getLinkedUID().equals(uid)) {
                 linkedItems.add(link.getItemName());
             }
         }
@@ -78,23 +78,11 @@ public abstract class AbstractLinkRegistry<L extends AbstractLink, P extends Pro
     public Set<L> getLinks(UID uid) {
         Set<L> links = new LinkedHashSet<>();
         for (L link : getAll()) {
-            if (link.getUID().equals(uid)) {
+            if (link.getLinkedUID().equals(uid)) {
                 links.add(link);
             }
         }
         return links;
-    }
-
-    @Override
-    public L get(final String key) {
-        for (final Map.Entry<Provider<L>, Collection<L>> entry : elementMap.entrySet()) {
-            for (final L link : entry.getValue()) {
-                if (key.equals(link.getID())) {
-                    return link;
-                }
-            }
-        }
-        return null;
     }
 
 }

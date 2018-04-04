@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.type;
 
@@ -11,6 +16,8 @@ import java.net.URI;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+
+import org.apache.commons.lang.StringUtils;
 import org.eclipse.smarthome.config.core.ConfigDescription;
 import org.eclipse.smarthome.core.thing.Channel;
 import org.eclipse.smarthome.core.types.EventDescription;
@@ -41,7 +48,6 @@ public class ChannelType extends AbstractDescriptionType {
      *
      * @param uid the unique identifier which identifies this Channel type within
      *            the overall system (must neither be null, nor empty)
-     *
      * @param advanced true if this channel type contains advanced features, otherwise false
      * @param itemType the item type of this Channel type, e.g. {@code ColorItem} (must neither be null nor empty)
      * @param label the human readable label for the according type
@@ -60,10 +66,6 @@ public class ChannelType extends AbstractDescriptionType {
             String category, Set<String> tags, StateDescription state, URI configDescriptionURI) {
         this(uid, advanced, itemType, ChannelKind.STATE, label, description, category, tags, state, null,
                 configDescriptionURI);
-
-        if ((itemType == null) || (itemType.isEmpty())) {
-            throw new IllegalArgumentException("The item type must neither be null nor empty!");
-        }
     }
 
     /**
@@ -89,14 +91,13 @@ public class ChannelType extends AbstractDescriptionType {
     public ChannelType(ChannelTypeUID uid, boolean advanced, String itemType, ChannelKind kind, String label,
             String description, String category, Set<String> tags, StateDescription state, EventDescription event,
             URI configDescriptionURI) throws IllegalArgumentException {
-
         super(uid, label, description);
 
         if (kind == null) {
             throw new IllegalArgumentException("Kind must not be null!");
         }
 
-        if (kind == ChannelKind.STATE && (itemType == null || itemType.isEmpty())) {
+        if (kind == ChannelKind.STATE && StringUtils.isBlank(itemType)) {
             throw new IllegalArgumentException("If the kind is 'state', the item type must be set!");
         }
         if (kind == ChannelKind.TRIGGER && itemType != null) {

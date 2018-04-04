@@ -1,11 +1,18 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.config.discovery.internal;
+
+import static org.eclipse.smarthome.config.discovery.inbox.InboxPredicates.forThingUID;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -23,10 +30,13 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.eclipse.smarthome.config.core.ConfigDescription;
 import org.eclipse.smarthome.config.core.ConfigDescriptionParameter;
 import org.eclipse.smarthome.config.core.ConfigDescriptionRegistry;
+import org.eclipse.smarthome.config.core.ConfigUtil;
 import org.eclipse.smarthome.config.core.Configuration;
 import org.eclipse.smarthome.config.discovery.DiscoveryListener;
 import org.eclipse.smarthome.config.discovery.DiscoveryResult;
@@ -53,6 +63,10 @@ import org.eclipse.smarthome.core.thing.binding.ThingHandlerFactory;
 import org.eclipse.smarthome.core.thing.type.ThingType;
 import org.eclipse.smarthome.core.thing.type.ThingTypeRegistry;
 import org.osgi.service.component.ComponentContext;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,6 +87,7 @@ import org.slf4j.LoggerFactory;
  * @author Christoph Knauf - Added removeThingsForBridge and getPropsAndConfigParams
  *
  */
+@Component(immediate = true, service = Inbox.class)
 public final class PersistentInbox implements Inbox, DiscoveryListener, ThingRegistryChangeListener {
 
     /**
@@ -86,7 +101,7 @@ public final class PersistentInbox implements Inbox, DiscoveryListener, ThingReg
 
     private class TimeToLiveCheckingThread implements Runnable {
 
-        private PersistentInbox inbox;
+        private final PersistentInbox inbox;
 
         public TimeToLiveCheckingThread(PersistentInbox inbox) {
             this.inbox = inbox;
@@ -113,34 +128,25 @@ public final class PersistentInbox implements Inbox, DiscoveryListener, ThingReg
 
     private final Logger logger = LoggerFactory.getLogger(PersistentInbox.class);
 
-    private Set<InboxListener> listeners = new CopyOnWriteArraySet<>();
-
+    private final Set<InboxListener> listeners = new CopyOnWriteArraySet<>();
     private DiscoveryServiceRegistry discoveryServiceRegistry;
-
     private ThingRegistry thingRegistry;
-
     private ManagedThingProvider managedThingProvider;
-
     private ThingTypeRegistry thingTypeRegistry;
-
     private ConfigDescriptionRegistry configDescRegistry;
-
-    private Storage<DiscoveryResult> discoveryResultStorage;
-
-    private Map<DiscoveryResult, Class<?>> resultDiscovererMap = new ConcurrentHashMap<>();
-
+    private StorageService storageService;
+    private volatile Storage<DiscoveryResult> discoveryResultStorage;
+    private final Map<DiscoveryResult, Class<?>> resultDiscovererMap = new ConcurrentHashMap<>();
     private ScheduledFuture<?> timeToLiveChecker;
-
     private EventPublisher eventPublisher;
-
-    private List<ThingHandlerFactory> thingHandlerFactories = new CopyOnWriteArrayList<>();
+    private final List<ThingHandlerFactory> thingHandlerFactories = new CopyOnWriteArrayList<>();
 
     @Override
     public Thing approve(ThingUID thingUID, String label) {
         if (thingUID == null) {
             throw new IllegalArgumentException("Thing UID must not be null");
         }
-        List<DiscoveryResult> results = get(new InboxFilterCriteria(thingUID, null));
+        List<DiscoveryResult> results = stream().filter(forThingUID(thingUID)).collect(Collectors.toList());
         if (results.isEmpty()) {
             throw new IllegalArgumentException("No Thing with UID " + thingUID.getAsString() + " in inbox");
         }
@@ -197,7 +203,8 @@ public final class PersistentInbox implements Inbox, DiscoveryListener, ThingReg
                 logger.debug("Discovery result with thing '{}' not added as inbox entry."
                         + " It is already present as thing in the ThingRegistry.", thingUID);
 
-                boolean updated = synchronizeConfiguration(result.getProperties(), thing.getConfiguration());
+                boolean updated = synchronizeConfiguration(result.getThingTypeUID(), result.getProperties(),
+                        thing.getConfiguration());
 
                 if (updated) {
                     logger.debug("The configuration for thing '{}' is updated...", thingUID);
@@ -209,10 +216,13 @@ public final class PersistentInbox implements Inbox, DiscoveryListener, ThingReg
         return false;
     }
 
-    private boolean synchronizeConfiguration(Map<String, Object> properties, Configuration config) {
+    private boolean synchronizeConfiguration(ThingTypeUID thingTypeUID, Map<String, Object> properties,
+            Configuration config) {
         boolean configUpdated = false;
 
         final Set<Map.Entry<String, Object>> propertySet = properties.entrySet();
+        final ThingType thingType = thingTypeRegistry.getThingType(thingTypeUID);
+        final List<ConfigDescriptionParameter> configDescParams = getConfigDescParams(thingType);
 
         for (Map.Entry<String, Object> propertyEntry : propertySet) {
             final String propertyKey = propertyEntry.getKey();
@@ -223,8 +233,12 @@ public final class PersistentInbox implements Inbox, DiscoveryListener, ThingReg
                 continue;
             }
 
+            // Normalize first
+            ConfigDescriptionParameter configDescParam = getConfigDescriptionParam(configDescParams, propertyKey);
+            Object normalizedValue = ConfigUtil.normalizeType(propertyValue, configDescParam);
+
             // If the value is equal to the one of the configuration, there is nothing to do.
-            if (Objects.equals(propertyValue, config.get(propertyKey))) {
+            if (Objects.equals(normalizedValue, config.get(propertyKey))) {
                 continue;
             }
 
@@ -232,11 +246,21 @@ public final class PersistentInbox implements Inbox, DiscoveryListener, ThingReg
             // - the values differ
 
             // update value
-            config.put(propertyKey, propertyValue);
+            config.put(propertyKey, normalizedValue);
             configUpdated = true;
         }
 
         return configUpdated;
+    }
+
+    private ConfigDescriptionParameter getConfigDescriptionParam(List<ConfigDescriptionParameter> configDescParams,
+            String paramName) {
+        for (ConfigDescriptionParameter configDescriptionParameter : configDescParams) {
+            if (configDescriptionParameter.getName().equals(paramName)) {
+                return configDescriptionParameter;
+            }
+        }
+        return null;
     }
 
     @Override
@@ -261,7 +285,12 @@ public final class PersistentInbox implements Inbox, DiscoveryListener, ThingReg
 
     @Override
     public List<DiscoveryResult> getAll() {
-        return get((InboxFilterCriteria) null);
+        return stream().collect(Collectors.toList());
+    }
+
+    @Override
+    public Stream<DiscoveryResult> stream() {
+        return this.discoveryResultStorage.getValues().stream();
     }
 
     @Override
@@ -302,16 +331,19 @@ public final class PersistentInbox implements Inbox, DiscoveryListener, ThingReg
 
     @Override
     public Collection<ThingUID> removeOlderResults(DiscoveryService source, long timestamp,
-            Collection<ThingTypeUID> thingTypeUIDs) {
+            Collection<ThingTypeUID> thingTypeUIDs, ThingUID bridgeUID) {
         HashSet<ThingUID> removedThings = new HashSet<>();
         for (DiscoveryResult discoveryResult : getAll()) {
             Class<?> discoverer = resultDiscovererMap.get(discoveryResult);
-            if (thingTypeUIDs.contains(discoveryResult.getThingTypeUID()) && discoveryResult.getTimestamp() < timestamp
+            if (thingTypeUIDs != null && thingTypeUIDs.contains(discoveryResult.getThingTypeUID())
+                    && discoveryResult.getTimestamp() < timestamp
                     && (discoverer == null || source.getClass() == discoverer)) {
                 ThingUID thingUID = discoveryResult.getThingUID();
-                removedThings.add(thingUID);
-                remove(thingUID);
-                logger.debug("Removed {} from inbox because it was older than {}", thingUID, new Date(timestamp));
+                if (bridgeUID == null || bridgeUID.equals(discoveryResult.getBridgeUID())) {
+                    removedThings.add(thingUID);
+                    remove(thingUID);
+                    logger.debug("Removed {} from inbox because it was older than {}", thingUID, new Date(timestamp));
+                }
             }
         }
         return removedThings;
@@ -424,7 +456,10 @@ public final class PersistentInbox implements Inbox, DiscoveryListener, ThingReg
                 logger.error(errorMessage, ex);
             }
         }
-        postEvent(result, type);
+
+        // in case of EventType added/updated the listeners might have modified the result in the discoveryResultStorage
+        DiscoveryResult resultForEvent = type == EventType.removed ? result : get(result.getThingUID());
+        postEvent(resultForEvent, type);
     }
 
     private void postEvent(DiscoveryResult result, EventType eventType) {
@@ -444,7 +479,7 @@ public final class PersistentInbox implements Inbox, DiscoveryListener, ThingReg
                         break;
                 }
             } catch (Exception ex) {
-                logger.error("Could not post event of type '" + eventType.name() + "'.", ex);
+                logger.error("Could not post event of type '{}'.", eventType.name(), ex);
             }
         }
     }
@@ -485,30 +520,38 @@ public final class PersistentInbox implements Inbox, DiscoveryListener, ThingReg
      */
     private void getPropsAndConfigParams(final DiscoveryResult discoveryResult, final Map<String, String> props,
             final Map<String, Object> configParams) {
-        final Set<String> paramNames = getConfigDescParamNames(discoveryResult);
+        final List<ConfigDescriptionParameter> configDescParams = getConfigDescParams(discoveryResult);
+        final Set<String> paramNames = getConfigDescParamNames(configDescParams);
         final Map<String, Object> resultProps = discoveryResult.getProperties();
         for (String resultKey : resultProps.keySet()) {
             if (paramNames.contains(resultKey)) {
-                configParams.put(resultKey, resultProps.get(resultKey));
+                ConfigDescriptionParameter param = getConfigDescriptionParam(configDescParams, resultKey);
+                Object normalizedValue = ConfigUtil.normalizeType(resultProps.get(resultKey), param);
+                configParams.put(resultKey, normalizedValue);
             } else {
                 props.put(resultKey, String.valueOf(resultProps.get(resultKey)));
             }
         }
     }
 
-    private Set<String> getConfigDescParamNames(DiscoveryResult discoveryResult) {
-        List<ConfigDescriptionParameter> confDescParams = getConfigDescParams(discoveryResult);
+    private Set<String> getConfigDescParamNames(List<ConfigDescriptionParameter> configDescParams) {
         Set<String> paramNames = new HashSet<>();
-        for (ConfigDescriptionParameter param : confDescParams) {
-            paramNames.add(param.getName());
+        if (configDescParams != null) {
+            for (ConfigDescriptionParameter param : configDescParams) {
+                paramNames.add(param.getName());
+            }
         }
         return paramNames;
     }
 
     private List<ConfigDescriptionParameter> getConfigDescParams(DiscoveryResult discoveryResult) {
-        ThingType type = thingTypeRegistry.getThingType(discoveryResult.getThingTypeUID());
-        if (type != null && type.getConfigDescriptionURI() != null) {
-            URI descURI = type.getConfigDescriptionURI();
+        ThingType thingType = thingTypeRegistry.getThingType(discoveryResult.getThingTypeUID());
+        return getConfigDescParams(thingType);
+    }
+
+    private List<ConfigDescriptionParameter> getConfigDescParams(ThingType thingType) {
+        if (thingType != null && thingType.getConfigDescriptionURI() != null) {
+            URI descURI = thingType.getConfigDescriptionURI();
             ConfigDescription desc = configDescRegistry.getConfigDescription(descURI);
             if (desc != null) {
                 return desc.getParameters();
@@ -543,15 +586,18 @@ public final class PersistentInbox implements Inbox, DiscoveryListener, ThingReg
         this.timeToLiveChecker.cancel(true);
     }
 
+    @Reference
     protected void setDiscoveryServiceRegistry(DiscoveryServiceRegistry discoveryServiceRegistry) {
         this.discoveryServiceRegistry = discoveryServiceRegistry;
     }
 
+    @Reference
     protected void setThingRegistry(ThingRegistry thingRegistry) {
         this.thingRegistry = thingRegistry;
         this.thingRegistry.addRegistryChangeListener(this);
     }
 
+    @Reference
     protected void setManagedThingProvider(ManagedThingProvider thingProvider) {
         this.managedThingProvider = thingProvider;
     }
@@ -569,15 +615,23 @@ public final class PersistentInbox implements Inbox, DiscoveryListener, ThingReg
         this.managedThingProvider = null;
     }
 
-    protected void setStorageService(StorageService storageService) {
-        this.discoveryResultStorage = storageService.getStorage(DiscoveryResult.class.getName(),
-                this.getClass().getClassLoader());
+    @Reference(policy = ReferencePolicy.DYNAMIC)
+    protected void setStorageService(final StorageService storageService) {
+        if (this.storageService != storageService) {
+            this.storageService = storageService;
+            this.discoveryResultStorage = storageService.getStorage(DiscoveryResult.class.getName(),
+                    this.getClass().getClassLoader());
+        }
     }
 
-    protected void unsetStorageService(StorageService storageService) {
-        this.discoveryResultStorage = null;
+    protected void unsetStorageService(final StorageService storageService) {
+        if (this.storageService == storageService) {
+            this.storageService = null;
+            this.discoveryResultStorage = null;
+        }
     }
 
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
     protected void setEventPublisher(EventPublisher eventPublisher) {
         this.eventPublisher = eventPublisher;
     }
@@ -586,6 +640,7 @@ public final class PersistentInbox implements Inbox, DiscoveryListener, ThingReg
         this.eventPublisher = null;
     }
 
+    @Reference
     protected void setThingTypeRegistry(ThingTypeRegistry thingTypeRegistry) {
         this.thingTypeRegistry = thingTypeRegistry;
     }
@@ -594,6 +649,7 @@ public final class PersistentInbox implements Inbox, DiscoveryListener, ThingReg
         this.thingTypeRegistry = null;
     }
 
+    @Reference
     protected void setConfigDescriptionRegistry(ConfigDescriptionRegistry configDescriptionRegistry) {
         this.configDescRegistry = configDescriptionRegistry;
     }
@@ -602,6 +658,7 @@ public final class PersistentInbox implements Inbox, DiscoveryListener, ThingReg
         this.configDescRegistry = null;
     }
 
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
     protected void addThingHandlerFactory(ThingHandlerFactory thingHandlerFactory) {
         this.thingHandlerFactories.add(thingHandlerFactory);
     }

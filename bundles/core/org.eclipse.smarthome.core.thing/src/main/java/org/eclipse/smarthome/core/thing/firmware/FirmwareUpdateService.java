@@ -1,41 +1,43 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.firmware;
 
-import static org.eclipse.smarthome.core.thing.firmware.FirmwareStatusInfo.createUnknownInfo;
-import static org.eclipse.smarthome.core.thing.firmware.FirmwareStatusInfo.createUpToDateInfo;
-import static org.eclipse.smarthome.core.thing.firmware.FirmwareStatusInfo.createUpdateAvailableInfo;
-import static org.eclipse.smarthome.core.thing.firmware.FirmwareStatusInfo.createUpdateExecutableInfo;
+import static org.eclipse.smarthome.core.thing.firmware.FirmwareStatusInfo.*;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 import org.eclipse.smarthome.config.core.validation.ConfigDescriptionValidator;
 import org.eclipse.smarthome.config.core.validation.ConfigValidationException;
-import org.eclipse.smarthome.core.common.SafeMethodCaller;
+import org.eclipse.smarthome.core.common.SafeCaller;
 import org.eclipse.smarthome.core.common.ThreadPoolManager;
 import org.eclipse.smarthome.core.events.Event;
 import org.eclipse.smarthome.core.events.EventFilter;
 import org.eclipse.smarthome.core.events.EventPublisher;
 import org.eclipse.smarthome.core.events.EventSubscriber;
-import org.eclipse.smarthome.core.i18n.I18nProvider;
 import org.eclipse.smarthome.core.i18n.LocaleProvider;
+import org.eclipse.smarthome.core.i18n.TranslationProvider;
 import org.eclipse.smarthome.core.thing.Thing;
 import org.eclipse.smarthome.core.thing.ThingStatus;
 import org.eclipse.smarthome.core.thing.ThingUID;
@@ -45,10 +47,16 @@ import org.eclipse.smarthome.core.thing.binding.firmware.FirmwareUpdateBackgroun
 import org.eclipse.smarthome.core.thing.binding.firmware.FirmwareUpdateHandler;
 import org.eclipse.smarthome.core.thing.binding.firmware.ProgressCallback;
 import org.eclipse.smarthome.core.thing.events.ThingStatusInfoChangedEvent;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Modified;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 
 /**
@@ -57,15 +65,18 @@ import com.google.common.collect.ImmutableSet;
  * central instance to start a firmware update.
  *
  * @author Thomas Höfer - Initial contribution
+ * @author Dimitar Ivanov - update and cancel operations are run with different safe caller identifiers in order to
+ *         execute asynchronously
  */
+@Component(immediate = true, service = { EventSubscriber.class, FirmwareUpdateService.class })
 public final class FirmwareUpdateService implements EventSubscriber {
 
     private static final String THREAD_POOL_NAME = FirmwareUpdateService.class.getSimpleName();
     private static final Set<String> SUPPORTED_TIME_UNITS = ImmutableSet.of(TimeUnit.SECONDS.name(),
             TimeUnit.MINUTES.name(), TimeUnit.HOURS.name(), TimeUnit.DAYS.name());
-    private static final String PERIOD_CONFIG_KEY = "period";
-    private static final String DELAY_CONFIG_KEY = "delay";
-    private static final String TIME_UNIT_CONFIG_KEY = "timeUnit";
+    protected static final String PERIOD_CONFIG_KEY = "period";
+    protected static final String DELAY_CONFIG_KEY = "delay";
+    protected static final String TIME_UNIT_CONFIG_KEY = "timeUnit";
     private static final String CONFIG_DESC_URI_KEY = "system:firmware-status-info-job";
 
     private final Logger logger = LoggerFactory.getLogger(FirmwareUpdateService.class);
@@ -76,9 +87,9 @@ public final class FirmwareUpdateService implements EventSubscriber {
 
     private ScheduledFuture<?> firmwareStatusInfoJob;
 
-    private int timeout = 30 * 60 * 1000;
+    protected int timeout = 30 * 60 * 1000;
 
-    private final Set<String> subscribedEventTypes = ImmutableSet.of(ThingStatusInfoChangedEvent.TYPE);
+    private final Set<String> subscribedEventTypes = Collections.singleton(ThingStatusInfoChangedEvent.TYPE);
 
     private final Map<ThingUID, FirmwareStatusInfo> firmwareStatusInfoMap = new ConcurrentHashMap<>();
     private final Map<ThingUID, ProgressCallbackImpl> progressCallbackMap = new ConcurrentHashMap<>();
@@ -86,10 +97,12 @@ public final class FirmwareUpdateService implements EventSubscriber {
     private final List<FirmwareUpdateHandler> firmwareUpdateHandlers = new CopyOnWriteArrayList<>();
     private FirmwareRegistry firmwareRegistry;
     private EventPublisher eventPublisher;
-    private I18nProvider i18nProvider;
+    private TranslationProvider i18nProvider;
     private LocaleProvider localeProvider;
+    private SafeCaller safeCaller;
+    private ConfigDescriptionValidator configDescriptionValidator;
 
-    private Runnable firmwareStatusRunnable = new Runnable() {
+    private final Runnable firmwareStatusRunnable = new Runnable() {
         @Override
         public void run() {
             logger.debug("Running firmware status check.");
@@ -98,8 +111,7 @@ public final class FirmwareUpdateService implements EventSubscriber {
                     logger.debug("Executing firmware status check for thing with UID {}.",
                             firmwareUpdateHandler.getThing().getUID());
 
-                    Firmware latestFirmware = firmwareRegistry
-                            .getLatestFirmware(firmwareUpdateHandler.getThing().getThingTypeUID());
+                    Firmware latestFirmware = getLatestSuitableFirmware(firmwareUpdateHandler.getThing());
 
                     FirmwareStatusInfo newFirmwareStatusInfo = getFirmwareStatusInfo(firmwareUpdateHandler,
                             latestFirmware);
@@ -112,10 +124,12 @@ public final class FirmwareUpdateService implements EventSubscriber {
         }
     };
 
+    @Activate
     protected void activate(Map<String, Object> config) {
         modified(config);
     }
 
+    @Modified
     protected synchronized void modified(Map<String, Object> config) {
         logger.debug("Modifying the configuration of the firmware update service.");
 
@@ -130,13 +144,15 @@ public final class FirmwareUpdateService implements EventSubscriber {
         firmwareStatusInfoJobDelay = config.containsKey(DELAY_CONFIG_KEY) ? (Integer) config.get(DELAY_CONFIG_KEY)
                 : firmwareStatusInfoJobDelay;
         firmwareStatusInfoJobTimeUnit = config.containsKey(TIME_UNIT_CONFIG_KEY)
-                ? TimeUnit.valueOf((String) config.get(TIME_UNIT_CONFIG_KEY)) : firmwareStatusInfoJobTimeUnit;
+                ? TimeUnit.valueOf((String) config.get(TIME_UNIT_CONFIG_KEY))
+                : firmwareStatusInfoJobTimeUnit;
 
         if (!firmwareUpdateHandlers.isEmpty()) {
             createFirmwareUpdateStatusInfoJob();
         }
     }
 
+    @Deactivate
     protected void deactivate() {
         cancelFirmwareUpdateStatusInfoJob();
         firmwareStatusInfoMap.clear();
@@ -147,24 +163,20 @@ public final class FirmwareUpdateService implements EventSubscriber {
      * Returns the {@link FirmwareStatusInfo} for the thing having the given thing UID.
      *
      * @param thingUID the UID of the thing (must not be null)
-     *
      * @return the firmware status info (is null if there is no {@link FirmwareUpdateHandler} for the thing
      *         available)
-     *
      * @throws NullPointerException if the given thing UID is null
      */
     public FirmwareStatusInfo getFirmwareStatusInfo(ThingUID thingUID) {
-        Preconditions.checkNotNull(thingUID, "Thing UID must not be null.");
-
+        Objects.requireNonNull(thingUID, "Thing UID must not be null.");
         FirmwareUpdateHandler firmwareUpdateHandler = getFirmwareUpdateHandler(thingUID);
 
         if (firmwareUpdateHandler == null) {
-            logger.debug("No firmware update handler available for thing with UID {}.", thingUID);
+            logger.trace("No firmware update handler available for thing with UID {}.", thingUID);
             return null;
         }
 
-        Firmware latestFirmware = firmwareRegistry
-                .getLatestFirmware(firmwareUpdateHandler.getThing().getThingTypeUID());
+        Firmware latestFirmware = getLatestSuitableFirmware(firmwareUpdateHandler.getThing());
 
         FirmwareStatusInfo firmwareStatusInfo = getFirmwareStatusInfo(firmwareUpdateHandler, latestFirmware);
 
@@ -179,14 +191,11 @@ public final class FirmwareUpdateService implements EventSubscriber {
      * <p>
      * This operation is a non-blocking operation by spawning a new thread around the invocation of the firmware update
      * handler. The time out of the thread is 30 minutes.
-     * </p>
-     *
      *
      * @param thingUID the thing UID (must not be null)
      * @param firmwareUID the UID of the firmware to be updated (must not be null)
      * @param locale the locale to be used to internationalize error messages (if null then the locale provided by the
      *            {@link LocaleProvider} is used)
-     *
      * @throws NullPointerException if given thing UID or firmware UID is null
      * @throws IllegalStateException if
      *             <ul>
@@ -201,8 +210,8 @@ public final class FirmwareUpdateService implements EventSubscriber {
      *             </ul>
      */
     public void updateFirmware(final ThingUID thingUID, final FirmwareUID firmwareUID, final Locale locale) {
-        Preconditions.checkNotNull(thingUID, "Thing UID must not be null.");
-        Preconditions.checkNotNull(firmwareUID, "Firmware UID must not be null.");
+        Objects.requireNonNull(thingUID, "Thing UID must not be null.");
+        Objects.requireNonNull(firmwareUID, "Firmware UID must not be null.");
 
         final FirmwareUpdateHandler firmwareUpdateHandler = getFirmwareUpdateHandler(thingUID);
 
@@ -223,70 +232,44 @@ public final class FirmwareUpdateService implements EventSubscriber {
 
         logger.debug("Starting firmware update for thing with UID {} and firmware with UID {}", thingUID, firmwareUID);
 
-        getPool().submit(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    SafeMethodCaller.call(new SafeMethodCaller.ActionWithException<Void>() {
-                        @Override
-                        public Void call() {
-                            firmwareUpdateHandler.updateFirmware(firmware, progressCallback);
-                            return null;
-                        }
-                    }, timeout);
-                } catch (ExecutionException e) {
-                    logger.error(String.format(
-                            "Unexpected exception occurred for firmware update of thing with UID %s and firmware with UID %s.",
-                            thingUID, firmwareUID), e.getCause());
-                    progressCallback.failedInternal("unexpected-handler-error");
-                } catch (TimeoutException e) {
-                    logger.error(String.format(
-                            "Timeout occurred for firmware update of thing with UID %s and firmware with UID %s.",
-                            thingUID, firmwareUID), e);
+        safeCaller.create(firmwareUpdateHandler, FirmwareUpdateHandler.class).withTimeout(timeout).withAsync()
+                .onTimeout(() -> {
+                    logger.error("Timeout occurred for firmware update of thing with UID {} and firmware with UID {}.",
+                            thingUID, firmwareUID);
                     progressCallback.failedInternal("timeout-error");
-                }
-            }
-        });
+                }).onException(e -> {
+                    logger.error(
+                            "Unexpected exception occurred for firmware update of thing with UID {} and firmware with UID {}.",
+                            thingUID, firmwareUID, e.getCause());
+                    progressCallback.failedInternal("unexpected-handler-error");
+                }).build().updateFirmware(firmware, progressCallback);
     }
 
     /**
      * Cancels the firmware update of the thing having the given thing UID by invoking the operation
      * {@link FirmwareUpdateHandler#cancel()} of the thing´s firmware update handler.
-     * 
+     *
      * @param thingUID the thing UID (must not be null)
      */
     public void cancelFirmwareUpdate(final ThingUID thingUID) {
-        Preconditions.checkNotNull(thingUID, "Thing UID must not be null.");
+        Objects.requireNonNull(thingUID, "Thing UID must not be null.");
         final FirmwareUpdateHandler firmwareUpdateHandler = getFirmwareUpdateHandler(thingUID);
         if (firmwareUpdateHandler == null) {
             throw new IllegalArgumentException(
                     String.format("There is no firmware update handler for thing with UID %s.", thingUID));
         }
         final ProgressCallbackImpl progressCallback = getProgressCallback(thingUID);
-        getPool().submit(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    SafeMethodCaller.call(new SafeMethodCaller.ActionWithException<Void>() {
-                        @Override
-                        public Void call() {
-                            logger.debug("Canceling firmware update for thing with UID {}.", thingUID);
-                            firmwareUpdateHandler.cancel();
-                            return null;
-                        }
-                    });
-                } catch (ExecutionException e) {
-                    logger.error(String.format(
-                            "Unexpected exception occurred while canceling firmware update of thing with UID %s.",
-                            thingUID), e.getCause());
-                    progressCallback.failedInternal("unexpected-handler-error-during-cancel");
-                } catch (TimeoutException e) {
-                    logger.error(String.format("Timeout occurred while canceling firmware update of thing with UID %s.",
-                            thingUID), e);
+
+        logger.debug("Cancelling firmware update for thing with UID {}.", thingUID);
+        safeCaller.create(firmwareUpdateHandler, FirmwareUpdateHandler.class).withTimeout(timeout).withAsync()
+                .onTimeout(() -> {
+                    logger.error("Timeout occurred while cancelling firmware update of thing with UID {}.", thingUID);
                     progressCallback.failedInternal("timeout-error-during-cancel");
-                }
-            }
-        });
+                }).onException(e -> {
+                    logger.error("Unexpected exception occurred while cancelling firmware update of thing with UID {}.",
+                            thingUID, e.getCause());
+                    progressCallback.failedInternal("unexpected-handler-error-during-cancel");
+                }).withIdentifier(new Object()).build().cancel();
     }
 
     @Override
@@ -321,6 +304,11 @@ public final class FirmwareUpdateService implements EventSubscriber {
                     String.format("No ProgressCallback available for thing with UID %s.", thingUID));
         }
         return progressCallbackMap.get(thingUID);
+    }
+
+    private Firmware getLatestSuitableFirmware(Thing thing) {
+        return firmwareRegistry.getFirmwares(thing.getThingTypeUID()).stream()
+                .filter(firmware -> firmware.isSuitableFor(thing)).findFirst().orElse(null);
     }
 
     private FirmwareStatusInfo getFirmwareStatusInfo(FirmwareUpdateHandler firmwareUpdateHandler,
@@ -387,7 +375,7 @@ public final class FirmwareUpdateService implements EventSubscriber {
 
     private void validateFirmwareSuitability(Firmware firmware, FirmwareUpdateHandler firmwareUpdateHandler) {
         Thing thing = firmwareUpdateHandler.getThing();
-        if (!firmware.getUID().getThingTypeUID().equals(thing.getThingTypeUID())) {
+        if (!firmware.isSuitableFor(thing)) {
             throw new IllegalArgumentException(String.format(
                     "Firmware with UID %s is not suitable for thing with UID %s.", firmware.getUID(), thing.getUID()));
         }
@@ -449,7 +437,7 @@ public final class FirmwareUpdateService implements EventSubscriber {
         }
 
         try {
-            ConfigDescriptionValidator.validate(config, new URI(CONFIG_DESC_URI_KEY));
+            configDescriptionValidator.validate(config, new URI(CONFIG_DESC_URI_KEY));
         } catch (URISyntaxException | ConfigValidationException e) {
             logger.debug("Validation of new configuration values failed. Will keep current configuration.", e);
             return false;
@@ -474,6 +462,19 @@ public final class FirmwareUpdateService implements EventSubscriber {
         return ThreadPoolManager.getScheduledPool(THREAD_POOL_NAME);
     }
 
+    protected int getFirmwareStatusInfoJobPeriod() {
+        return firmwareStatusInfoJobPeriod;
+    }
+
+    protected int getFirmwareStatusInfoJobDelay() {
+        return firmwareStatusInfoJobDelay;
+    }
+
+    protected TimeUnit getFirmwareStatusInfoJobTimeUnit() {
+        return firmwareStatusInfoJobTimeUnit;
+    }
+
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
     protected synchronized void addFirmwareUpdateHandler(FirmwareUpdateHandler firmwareUpdateHandler) {
         if (firmwareUpdateHandlers.isEmpty()) {
             createFirmwareUpdateStatusInfoJob();
@@ -490,6 +491,7 @@ public final class FirmwareUpdateService implements EventSubscriber {
         progressCallbackMap.remove(firmwareUpdateHandler.getThing().getUID());
     }
 
+    @Reference
     protected void setFirmwareRegistry(FirmwareRegistry firmwareRegistry) {
         this.firmwareRegistry = firmwareRegistry;
     }
@@ -498,6 +500,7 @@ public final class FirmwareUpdateService implements EventSubscriber {
         this.firmwareRegistry = null;
     }
 
+    @Reference
     protected void setEventPublisher(EventPublisher eventPublisher) {
         this.eventPublisher = eventPublisher;
     }
@@ -506,20 +509,40 @@ public final class FirmwareUpdateService implements EventSubscriber {
         this.eventPublisher = null;
     }
 
-    protected void setI18nProvider(I18nProvider i18nProvider) {
+    @Reference
+    protected void setTranslationProvider(TranslationProvider i18nProvider) {
         this.i18nProvider = i18nProvider;
     }
 
-    protected void unsetI18nProvider(I18nProvider i18nProvider) {
+    protected void unsetTranslationProvider(TranslationProvider i18nProvider) {
         this.i18nProvider = null;
     }
 
+    @Reference
     protected void setLocaleProvider(final LocaleProvider localeProvider) {
         this.localeProvider = localeProvider;
     }
 
     protected void unsetLocaleProvider(final LocaleProvider localeProvider) {
         this.localeProvider = null;
+    }
+
+    @Reference
+    protected void setSafeCaller(SafeCaller safeCaller) {
+        this.safeCaller = safeCaller;
+    }
+
+    protected void unsetSafeCaller(SafeCaller safeCaller) {
+        this.safeCaller = null;
+    }
+
+    @Reference
+    protected void setConfigDescriptionValidator(ConfigDescriptionValidator configDescriptionValidator) {
+        this.configDescriptionValidator = configDescriptionValidator;
+    }
+
+    protected void unsetConfigDescriptionValidator(ConfigDescriptionValidator configDescriptionValidator) {
+        this.configDescriptionValidator = null;
     }
 
 }

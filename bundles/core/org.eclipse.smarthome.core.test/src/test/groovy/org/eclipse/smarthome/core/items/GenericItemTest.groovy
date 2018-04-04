@@ -1,17 +1,25 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.items
 
 import static org.hamcrest.CoreMatchers.*
+import static org.hamcrest.collection.IsCollectionWithSize.hasSize
 import static org.junit.Assert.*
+import static org.mockito.Mockito.mock
 
 import org.eclipse.smarthome.core.events.Event
 import org.eclipse.smarthome.core.events.EventPublisher
+import org.eclipse.smarthome.core.i18n.UnitProvider
 import org.eclipse.smarthome.core.items.events.ItemEventFactory
 import org.eclipse.smarthome.core.items.events.ItemStateChangedEvent
 import org.eclipse.smarthome.core.items.events.ItemStateEvent
@@ -119,5 +127,24 @@ class GenericItemTest {
         assertThat item.getStateAs(null), is(nullValue())
     }
 
+    @Test
+    void 'assert that dispose clears all services and listeners'() {
+        def item = new TestItem("test");
+        item.setEventPublisher(mock(EventPublisher.class));
+        item.setItemStateConverter(mock(ItemStateConverter.class));
+        item.setStateDescriptionService(null);
+        item.setUnitProvider(mock(UnitProvider.class));
+
+        item.addStateChangeListener(mock(StateChangeListener.class));
+
+        item.dispose();
+
+        assertThat(item.eventPublisher, is(nullValue()));
+        assertThat(item.itemStateConverter, is(nullValue()));
+        // can not be tested as stateDescriptionProviders is private in GenericItem
+        // assertThat(item.stateDescriptionProviders, is(nullValue())); 
+        assertThat(item.unitProvider, is(nullValue()));
+        assertThat(item.listeners, hasSize(0));
+    }
 
 }

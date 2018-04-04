@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.config.core.validation.test
 
@@ -16,13 +21,14 @@ import org.eclipse.smarthome.config.core.ConfigDescriptionParameter
 import org.eclipse.smarthome.config.core.ConfigDescriptionParameterBuilder
 import org.eclipse.smarthome.config.core.ConfigDescriptionRegistry
 import org.eclipse.smarthome.config.core.ConfigDescriptionParameter.Type
-import org.eclipse.smarthome.config.core.internal.Activator
-import org.eclipse.smarthome.config.core.validation.ConfigDescriptionValidator
+import org.eclipse.smarthome.config.core.internal.validation.ConfigDescriptionValidatorImpl
+import org.eclipse.smarthome.config.core.internal.validation.MessageKey
 import org.eclipse.smarthome.config.core.validation.ConfigValidationException
 import org.eclipse.smarthome.config.core.validation.ConfigValidationMessage
-import org.eclipse.smarthome.config.core.validation.internal.MessageKey
 import org.junit.Before
 import org.junit.Test
+import org.osgi.framework.Bundle
+import org.osgi.framework.BundleContext
 
 /**
  * Testing the {@link ConfigDescriptionValidator}.
@@ -34,8 +40,14 @@ class ConfigDescriptionValidatorTest {
     private static final int MIN_VIOLATED = 1
     private static final int MAX_VIOLATED = 1234
 
+    private static final BigDecimal DECIMAL_MIN_VIOLATED = 1g;
+    private static final BigDecimal DECIMAL_MAX_VIOLATED = 3.5g;
+
     private static final int MIN = 2
     private static final int MAX = 3
+
+    private static final BigDecimal DECIMAL_MIN = 1.3g
+    private static final BigDecimal DECIMAL_MAX = 3.3g
 
     private static final String PATTERN = "ab*c"
 
@@ -79,8 +91,8 @@ class ConfigDescriptionValidatorTest {
 
     private static final ConfigDescriptionParameter DECIMAL_PARAM = createConfigDescriptionParameter(name: DECIMAL_PARAM_NAME, type: ConfigDescriptionParameter.Type.DECIMAL)
     private static final ConfigDescriptionParameter DECIMAL_REQUIRED_PARAM = createConfigDescriptionParameter(name: DECIMAL_REQUIRED_PARAM_NAME, type: ConfigDescriptionParameter.Type.DECIMAL, required: true)
-    private static final ConfigDescriptionParameter DECIMAL_MIN_PARAM = createConfigDescriptionParameter(name: DECIMAL_MIN_PARAM_NAME, type: ConfigDescriptionParameter.Type.DECIMAL, min: MIN)
-    private static final ConfigDescriptionParameter DECIMAL_MAX_PARAM = createConfigDescriptionParameter(name: DECIMAL_MAX_PARAM_NAME, type: ConfigDescriptionParameter.Type.DECIMAL, max: MAX)
+    private static final ConfigDescriptionParameter DECIMAL_MIN_PARAM = createConfigDescriptionParameter(name: DECIMAL_MIN_PARAM_NAME, type: ConfigDescriptionParameter.Type.DECIMAL, min: DECIMAL_MIN)
+    private static final ConfigDescriptionParameter DECIMAL_MAX_PARAM = createConfigDescriptionParameter(name: DECIMAL_MAX_PARAM_NAME, type: ConfigDescriptionParameter.Type.DECIMAL, max: DECIMAL_MAX)
 
     private static final URI CONFIG_DESCRIPTION_URI = new URI("config:dummy")
 
@@ -103,17 +115,27 @@ class ConfigDescriptionValidatorTest {
         DECIMAL_MAX_PARAM] as List)
 
     private Map params
+    private ConfigDescriptionValidatorImpl configDescriptionValidator;
 
     @Before
     void setUp() {
-        Activator.configDescriptionRegistry = [
-            getConfigDescription: { uri ->
-                if(!CONFIG_DESCRIPTION_URI.equals(uri)) {
-                    null
-                }
-                CONFIG_DESCRIPTION
+        configDescriptionValidator = new ConfigDescriptionValidatorImpl();
+        configDescriptionValidator.setConfigDescriptionRegistry(
+                [
+                    getConfigDescription: { uri ->
+                        if(!CONFIG_DESCRIPTION_URI.equals(uri)) {
+                            null
+                        }
+                        CONFIG_DESCRIPTION
+                    }
+                ] as ConfigDescriptionRegistry);
+        configDescriptionValidator.activate([
+            getBundle: {
+                -> [
+                    getBundleId: { -> 0 }
+                ] as Bundle
             }
-        ] as ConfigDescriptionRegistry
+        ] as BundleContext)
 
         params = [
             (BOOL_PARAM_NAME): null,
@@ -130,15 +152,15 @@ class ConfigDescriptionValidatorTest {
             (INT_MAX_PARAM_NAME): MAX,
             (DECIMAL_PARAM_NAME): null,
             (DECIMAL_REQUIRED_PARAM_NAME): 0f,
-            (DECIMAL_MIN_PARAM_NAME): (float) MIN,
-            (DECIMAL_MAX_PARAM_NAME): (float) MAX
+            (DECIMAL_MIN_PARAM_NAME): DECIMAL_MIN,
+            (DECIMAL_MAX_PARAM_NAME): DECIMAL_MAX
         ]
     }
 
 
     @Test
     void 'assert validation throws no exception for valid config parameters'() {
-        ConfigDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
+        configDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
     }
 
     // ===========================================================================
@@ -183,7 +205,7 @@ class ConfigDescriptionValidatorTest {
             params.put(TXT_REQUIRED_PARAM_NAME, null)
             params.put(INT_REQUIRED_PARAM_NAME, null)
             params.put(DECIMAL_REQUIRED_PARAM_NAME, null)
-            ConfigDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
+            configDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
             failBecauseOfMissingConfigValidationException()
         } catch(ConfigValidationException e) {
             assertThat e.configValidationMessages, is(expected)
@@ -197,7 +219,7 @@ class ConfigDescriptionValidatorTest {
                 ]
         try {
             params.put(parameterName, null)
-            ConfigDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
+            configDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
             failBecauseOfMissingConfigValidationException()
         } catch(ConfigValidationException e) {
             assertThat e.configValidationMessages, is(expected)
@@ -210,67 +232,67 @@ class ConfigDescriptionValidatorTest {
 
     @Test
     void 'assert validation throws exception for invalid min attribute of txt config parameter'() {
-        assertMinMax(TXT_MIN_PARAM_NAME, String.valueOf(MIN_VIOLATED), MessageKey.MIN_VALUE_TXT_VIOLATED, MIN)
+        assertMinMax(TXT_MIN_PARAM_NAME, String.valueOf(MIN_VIOLATED), MessageKey.MIN_VALUE_TXT_VIOLATED, MIN.toString())
     }
 
     @Test
     void 'assert validation throws exception for invalid max attribute of txt config parameter'() {
-        assertMinMax(TXT_MAX_PARAM_NAME, String.valueOf(MAX_VIOLATED), MessageKey.MAX_VALUE_TXT_VIOLATED, MAX)
+        assertMinMax(TXT_MAX_PARAM_NAME, String.valueOf(MAX_VIOLATED), MessageKey.MAX_VALUE_TXT_VIOLATED, MAX.toString())
     }
 
     @Test
     void 'assert validation throws exception for invalid min attribute of int config parameter'() {
-        assertMinMax(INT_MIN_PARAM_NAME, MIN_VIOLATED, MessageKey.MIN_VALUE_NUMERIC_VIOLATED, MIN)
+        assertMinMax(INT_MIN_PARAM_NAME, MIN_VIOLATED, MessageKey.MIN_VALUE_NUMERIC_VIOLATED, MIN.toString())
     }
 
     @Test
     void 'assert validation throws exception for invalid max attribute of int config parameter'() {
-        assertMinMax(INT_MAX_PARAM_NAME, MAX_VIOLATED, MessageKey.MAX_VALUE_NUMERIC_VIOLATED, MAX)
+        assertMinMax(INT_MAX_PARAM_NAME, MAX_VIOLATED, MessageKey.MAX_VALUE_NUMERIC_VIOLATED, MAX.toString())
     }
 
     @Test
     void 'assert validation throws exception for invalid min attribute of decimal config parameter'() {
-        assertMinMax(DECIMAL_MIN_PARAM_NAME, (float) MIN_VIOLATED, MessageKey.MIN_VALUE_NUMERIC_VIOLATED, MIN)
+        assertMinMax(DECIMAL_MIN_PARAM_NAME, DECIMAL_MIN_VIOLATED, MessageKey.MIN_VALUE_NUMERIC_VIOLATED, DECIMAL_MIN.toString())
     }
 
     @Test
     void 'assert validation throws exception for invalid max attribute of decimal config parameter'() {
-        assertMinMax(DECIMAL_MAX_PARAM_NAME, (float) MAX_VIOLATED, MessageKey.MAX_VALUE_NUMERIC_VIOLATED, MAX)
+        assertMinMax(DECIMAL_MAX_PARAM_NAME, DECIMAL_MAX_VIOLATED, MessageKey.MAX_VALUE_NUMERIC_VIOLATED, DECIMAL_MAX.toString())
     }
 
     @Test
     void 'assert validation throws exception containing messages for all min max config parameters'() {
         def expected =
                 [
-                    new ConfigValidationMessage(TXT_MIN_PARAM_NAME, MessageKey.MIN_VALUE_TXT_VIOLATED.defaultMessage, MessageKey.MIN_VALUE_TXT_VIOLATED.key, MIN),
-                    new ConfigValidationMessage(TXT_MAX_PARAM_NAME, MessageKey.MAX_VALUE_TXT_VIOLATED.defaultMessage, MessageKey.MAX_VALUE_TXT_VIOLATED.key, MAX),
-                    new ConfigValidationMessage(INT_MIN_PARAM_NAME, MessageKey.MIN_VALUE_NUMERIC_VIOLATED.defaultMessage, MessageKey.MIN_VALUE_NUMERIC_VIOLATED.key, MIN),
-                    new ConfigValidationMessage(INT_MAX_PARAM_NAME, MessageKey.MAX_VALUE_NUMERIC_VIOLATED.defaultMessage, MessageKey.MAX_VALUE_NUMERIC_VIOLATED.key, MAX),
-                    new ConfigValidationMessage(DECIMAL_MIN_PARAM_NAME, MessageKey.MIN_VALUE_NUMERIC_VIOLATED.defaultMessage, MessageKey.MIN_VALUE_NUMERIC_VIOLATED.key, MIN),
-                    new ConfigValidationMessage(DECIMAL_MAX_PARAM_NAME, MessageKey.MAX_VALUE_NUMERIC_VIOLATED.defaultMessage, MessageKey.MAX_VALUE_NUMERIC_VIOLATED.key, MAX)
+                    new ConfigValidationMessage(TXT_MIN_PARAM_NAME, MessageKey.MIN_VALUE_TXT_VIOLATED.defaultMessage, MessageKey.MIN_VALUE_TXT_VIOLATED.key, MIN.toString()),
+                    new ConfigValidationMessage(TXT_MAX_PARAM_NAME, MessageKey.MAX_VALUE_TXT_VIOLATED.defaultMessage, MessageKey.MAX_VALUE_TXT_VIOLATED.key, MAX.toString()),
+                    new ConfigValidationMessage(INT_MIN_PARAM_NAME, MessageKey.MIN_VALUE_NUMERIC_VIOLATED.defaultMessage, MessageKey.MIN_VALUE_NUMERIC_VIOLATED.key, MIN.toString()),
+                    new ConfigValidationMessage(INT_MAX_PARAM_NAME, MessageKey.MAX_VALUE_NUMERIC_VIOLATED.defaultMessage, MessageKey.MAX_VALUE_NUMERIC_VIOLATED.key, MAX.toString()),
+                    new ConfigValidationMessage(DECIMAL_MIN_PARAM_NAME, MessageKey.MIN_VALUE_NUMERIC_VIOLATED.defaultMessage, MessageKey.MIN_VALUE_NUMERIC_VIOLATED.key, DECIMAL_MIN.toString()),
+                    new ConfigValidationMessage(DECIMAL_MAX_PARAM_NAME, MessageKey.MAX_VALUE_NUMERIC_VIOLATED.defaultMessage, MessageKey.MAX_VALUE_NUMERIC_VIOLATED.key, DECIMAL_MAX.toString())
                 ]
         try {
             params.put(TXT_MIN_PARAM_NAME, String.valueOf(MIN_VIOLATED))
             params.put(TXT_MAX_PARAM_NAME, String.valueOf(MAX_VIOLATED))
             params.put(INT_MIN_PARAM_NAME, MIN_VIOLATED)
             params.put(INT_MAX_PARAM_NAME, MAX_VIOLATED)
-            params.put(DECIMAL_MIN_PARAM_NAME, (float) MIN_VIOLATED)
-            params.put(DECIMAL_MAX_PARAM_NAME, (float) MAX_VIOLATED)
-            ConfigDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
+            params.put(DECIMAL_MIN_PARAM_NAME, DECIMAL_MIN_VIOLATED)
+            params.put(DECIMAL_MAX_PARAM_NAME, DECIMAL_MAX_VIOLATED)
+            configDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
             failBecauseOfMissingConfigValidationException()
         } catch(ConfigValidationException e) {
             assertThat e.configValidationMessages, is(expected)
         }
     }
 
-    void assertMinMax(String parameterName, def value, MessageKey msgKey, int minMax) {
+    void assertMinMax(String parameterName, def value, MessageKey msgKey, Object minMax) {
         def expected =
                 [
                     new ConfigValidationMessage(parameterName, msgKey.defaultMessage, msgKey.key, minMax)
                 ]
         try {
             params.put(parameterName, value)
-            ConfigDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
+            configDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
             failBecauseOfMissingConfigValidationException()
         } catch(ConfigValidationException e) {
             assertThat e.configValidationMessages, is(expected)
@@ -315,7 +337,7 @@ class ConfigDescriptionValidatorTest {
             params.put(TXT_PARAM_NAME, INVALID)
             params.put(INT_PARAM_NAME, INVALID)
             params.put(DECIMAL_PARAM_NAME, INVALID)
-            ConfigDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
+            configDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
             failBecauseOfMissingConfigValidationException()
         } catch(ConfigValidationException e) {
             assertThat e.configValidationMessages, is(expected)
@@ -329,7 +351,7 @@ class ConfigDescriptionValidatorTest {
                 ]
         try {
             params.put(parameterName, INVALID)
-            ConfigDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
+            configDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
             failBecauseOfMissingConfigValidationException()
         } catch(ConfigValidationException e) {
             assertThat e.configValidationMessages, is(expected)
@@ -348,7 +370,7 @@ class ConfigDescriptionValidatorTest {
                 ]
         try {
             params.put(TXT_PATTERN_PARAM_NAME, String.valueOf(MAX_VIOLATED))
-            ConfigDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
+            configDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
             failBecauseOfMissingConfigValidationException()
         } catch(ConfigValidationException e) {
             assertThat e.configValidationMessages, is(expected)
@@ -365,11 +387,11 @@ class ConfigDescriptionValidatorTest {
                 [
                     new ConfigValidationMessage(BOOL_REQUIRED_PARAM_NAME, MessageKey.PARAMETER_REQUIRED.defaultMessage, MessageKey.PARAMETER_REQUIRED.key),
                     new ConfigValidationMessage(TXT_REQUIRED_PARAM_NAME, MessageKey.PARAMETER_REQUIRED.defaultMessage, MessageKey.PARAMETER_REQUIRED.key),
-                    new ConfigValidationMessage(TXT_MAX_PARAM_NAME, MessageKey.MAX_VALUE_TXT_VIOLATED.defaultMessage, MessageKey.MAX_VALUE_TXT_VIOLATED.key, MAX),
+                    new ConfigValidationMessage(TXT_MAX_PARAM_NAME, MessageKey.MAX_VALUE_TXT_VIOLATED.defaultMessage, MessageKey.MAX_VALUE_TXT_VIOLATED.key, MAX.toString()),
                     new ConfigValidationMessage(TXT_PATTERN_PARAM_NAME, MessageKey.PATTERN_VIOLATED.defaultMessage, MessageKey.PATTERN_VIOLATED.key, String.valueOf(MAX_VIOLATED), PATTERN),
-                    new ConfigValidationMessage(INT_MIN_PARAM_NAME, MessageKey.MIN_VALUE_NUMERIC_VIOLATED.defaultMessage, MessageKey.MIN_VALUE_NUMERIC_VIOLATED.key, MIN),
+                    new ConfigValidationMessage(INT_MIN_PARAM_NAME, MessageKey.MIN_VALUE_NUMERIC_VIOLATED.defaultMessage, MessageKey.MIN_VALUE_NUMERIC_VIOLATED.key, MIN.toString()),
                     new ConfigValidationMessage(DECIMAL_PARAM_NAME, MessageKey.DATA_TYPE_VIOLATED.defaultMessage, MessageKey.DATA_TYPE_VIOLATED.key, Type.DECIMAL),
-                    new ConfigValidationMessage(DECIMAL_MAX_PARAM_NAME, MessageKey.MAX_VALUE_NUMERIC_VIOLATED.defaultMessage, MessageKey.MAX_VALUE_NUMERIC_VIOLATED.key, MAX)
+                    new ConfigValidationMessage(DECIMAL_MAX_PARAM_NAME, MessageKey.MAX_VALUE_NUMERIC_VIOLATED.defaultMessage, MessageKey.MAX_VALUE_NUMERIC_VIOLATED.key, DECIMAL_MAX.toString())
                 ]
         try {
             params.put(BOOL_REQUIRED_PARAM_NAME, null)
@@ -378,8 +400,8 @@ class ConfigDescriptionValidatorTest {
             params.put(TXT_PATTERN_PARAM_NAME, String.valueOf(MAX_VIOLATED))
             params.put(INT_MIN_PARAM_NAME, MIN_VIOLATED)
             params.put(DECIMAL_PARAM_NAME, INVALID)
-            params.put(DECIMAL_MAX_PARAM_NAME, (float) MAX_VIOLATED)
-            ConfigDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
+            params.put(DECIMAL_MAX_PARAM_NAME, DECIMAL_MAX_VIOLATED)
+            configDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
             failBecauseOfMissingConfigValidationException()
         } catch(ConfigValidationException e) {
             assertThat e.configValidationMessages, is(expected)
@@ -390,11 +412,11 @@ class ConfigDescriptionValidatorTest {
     void 'assert validation provides only one message per parameter although multiple violations occurs'() {
         def expected =
                 [
-                    new ConfigValidationMessage(TXT_MAX_PATTERN_PARAM_NAME, MessageKey.MAX_VALUE_TXT_VIOLATED.defaultMessage, MessageKey.MAX_VALUE_TXT_VIOLATED.key, MAX)
+                    new ConfigValidationMessage(TXT_MAX_PATTERN_PARAM_NAME, MessageKey.MAX_VALUE_TXT_VIOLATED.defaultMessage, MessageKey.MAX_VALUE_TXT_VIOLATED.key, MAX.toString())
                 ]
         try {
             params.put(TXT_MAX_PATTERN_PARAM_NAME, String.valueOf(MAX_VIOLATED))
-            ConfigDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
+            configDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
             failBecauseOfMissingConfigValidationException()
         } catch(ConfigValidationException e) {
             assertThat e.configValidationMessages, is(expected)
@@ -404,37 +426,37 @@ class ConfigDescriptionValidatorTest {
     @Test
     void 'assert validation does not care about parameter that is not specified in config description'() {
         params.put(UNKNOWN, null)
-        ConfigDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
+        configDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
 
         params.put(UNKNOWN, MIN_VIOLATED)
-        ConfigDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
+        configDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
 
         params.put(UNKNOWN, MAX_VIOLATED)
-        ConfigDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
+        configDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
 
         params.put(UNKNOWN, INVALID)
-        ConfigDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
+        configDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
     }
 
     @Test(expected=NullPointerException)
     void 'assert validate throws NPE for null paramerters'() {
-        ConfigDescriptionValidator.validate(null, CONFIG_DESCRIPTION_URI)
+        configDescriptionValidator.validate(null, CONFIG_DESCRIPTION_URI)
     }
 
     @Test(expected=NullPointerException)
     void 'assert validate throws NPE for null config description uri'() {
-        ConfigDescriptionValidator.validate(params, null)
+        configDescriptionValidator.validate(params, null)
     }
 
     @Test
     void 'assert validate can handle unknown URIs'() {
-        ConfigDescriptionValidator.validate(params, new URI(UNKNOWN))
+        configDescriptionValidator.validate(params, new URI(UNKNOWN))
     }
 
     @Test
     void 'assert validate can handle situations without config description registry'() {
-        Activator.configDescriptionRegistry = null
-        ConfigDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
+        configDescriptionValidator.setConfigDescriptionRegistry(null);
+        configDescriptionValidator.validate(params, CONFIG_DESCRIPTION_URI)
     }
 
     def failBecauseOfMissingConfigValidationException() {

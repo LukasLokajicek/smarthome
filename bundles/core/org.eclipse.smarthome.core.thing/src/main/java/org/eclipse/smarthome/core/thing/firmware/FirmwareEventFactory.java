@@ -1,17 +1,23 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.firmware;
 
 import org.eclipse.smarthome.core.events.AbstractEventFactory;
 import org.eclipse.smarthome.core.events.Event;
+import org.eclipse.smarthome.core.events.EventFactory;
 import org.eclipse.smarthome.core.thing.ThingUID;
+import org.osgi.service.component.annotations.Component;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 
 /**
@@ -25,15 +31,16 @@ import com.google.common.collect.ImmutableSet;
  *
  * @author Thomas Höfer - Initial contribution
  */
+@Component(immediate = true, service = EventFactory.class)
 public final class FirmwareEventFactory extends AbstractEventFactory {
 
     private static final int THING_UID_TOPIC_IDX = 2;
 
-    private static final String THING_UID_TOPIC_KEY = "{thingUID}";
+    static final String THING_UID_TOPIC_KEY = "{thingUID}";
 
-    private static final String FIRMWARE_STATUS_TOPIC = "smarthome/things/{thingUID}/firmware/status";
-    private static final String FIRMWARE_UPDATE_PROGRESS_TOPIC = "smarthome/things/{thingUID}/firmware/update/progress";
-    private static final String FIRMWARE_UPDATE_RESULT_TOPIC = "smarthome/things/{thingUID}/firmware/update/result";
+    static final String FIRMWARE_STATUS_TOPIC = "smarthome/things/{thingUID}/firmware/status";
+    static final String FIRMWARE_UPDATE_PROGRESS_TOPIC = "smarthome/things/{thingUID}/firmware/update/progress";
+    static final String FIRMWARE_UPDATE_RESULT_TOPIC = "smarthome/things/{thingUID}/firmware/update/result";
 
     /**
      * Creates a new firmware event factory.
@@ -60,15 +67,13 @@ public final class FirmwareEventFactory extends AbstractEventFactory {
      *
      * @param firmwareStatusInfo the firmware status information (must not be null)
      * @param thingUID the thing UID for which the new firmware status info is to be sent (must not be null)
-     *
      * @return the corresponding firmware status info event
-     *
      * @throws NullPointerException if given firmware status info or thing UID is null
      */
     static FirmwareStatusInfoEvent createFirmwareStatusInfoEvent(FirmwareStatusInfo firmwareStatusInfo,
             ThingUID thingUID) {
-        Preconditions.checkNotNull(firmwareStatusInfo, "The firmare status info must not be null.");
-        Preconditions.checkNotNull(thingUID, "The thing UID must not be null");
+        checkNotNull(firmwareStatusInfo, "firmwareStatusInfo");
+        checkNotNull(thingUID, "thingUID");
 
         String topic = FIRMWARE_STATUS_TOPIC.replace(THING_UID_TOPIC_KEY, thingUID.getAsString());
         String payload = serializePayload(firmwareStatusInfo);
@@ -81,15 +86,13 @@ public final class FirmwareEventFactory extends AbstractEventFactory {
      *
      * @param progressInfo the progress information of the firmware update process (must not be null)
      * @param thingUID the thing UID for which the progress info is to be sent (must not be null)
-     *
      * @return the corresponding progress info event
-     *
      * @throws NullPointerException if given progress info or thing UID is null
      */
     static FirmwareUpdateProgressInfoEvent createFirmwareUpdateProgressInfoEvent(
             FirmwareUpdateProgressInfo progressInfo, ThingUID thingUID) {
-        Preconditions.checkNotNull(progressInfo, "The progress info must not be null");
-        Preconditions.checkNotNull(thingUID, "The thing UID must not be null");
+        checkNotNull(progressInfo, "progressInfo");
+        checkNotNull(thingUID, "thingUID");
 
         String topic = FIRMWARE_UPDATE_PROGRESS_TOPIC.replace(THING_UID_TOPIC_KEY, thingUID.getAsString());
         String payload = serializePayload(progressInfo);
@@ -102,15 +105,13 @@ public final class FirmwareEventFactory extends AbstractEventFactory {
      *
      * @param firmwareUpdateResultInfo the firmware update result information (must not be null)
      * @param thingUID the thing UID for which the result information is to be sent (must not be null)
-     *
      * @return the corresponding firmware update result info event
-     *
      * @throws NullPointerException if given firmware update result info event or thing UID is null
      */
     static FirmwareUpdateResultInfoEvent createFirmwareUpdateResultInfoEvent(
             FirmwareUpdateResultInfo firmwareUpdateResultInfo, ThingUID thingUID) {
-        Preconditions.checkNotNull(firmwareUpdateResultInfo, "The firmware update result info must not be null");
-        Preconditions.checkNotNull(thingUID, "The thing UID must not be null");
+        checkNotNull(firmwareUpdateResultInfo, "firmwareUpdateResultInfo");
+        checkNotNull(thingUID, "thingUID");
 
         String topic = FIRMWARE_UPDATE_RESULT_TOPIC.replace(THING_UID_TOPIC_KEY, thingUID.getAsString());
         String payload = serializePayload(firmwareUpdateResultInfo);

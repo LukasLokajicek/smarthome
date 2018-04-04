@@ -1,16 +1,15 @@
-/*******************************************************************************
+/**
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
  *
- * Copyright (c) 2016  Bosch Software Innovations GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
  *
- * The Eclipse Public License is available at
- * http://www.eclipse.org/legal/epl-v10.html
- * The Eclipse Distribution License is available at
- * http://www.eclipse.org/org/documents/edl-v10.php.
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
  *
- *******************************************************************************/
+ * SPDX-License-Identifier: EPL-2.0
+ */
 package org.eclipse.smarthome.automation.internal.core.provider;
 
 import java.util.ArrayList;
@@ -180,8 +179,16 @@ public class AutomationResourceBundlesTracker implements BundleTrackerCustomizer
                     HostFragmentMappingUtil.fillHostFragmentMapping(hosts);
                 }
             } else {
-                addEvent(bundle, event);
                 HostFragmentMappingUtil.fillHostFragmentMapping(bundle);
+                addEvent(bundle, event);
+            }
+        } else if (!HostFragmentMappingUtil.isFragmentBundle(bundle)) {
+            List<Bundle> fragments = HostFragmentMappingUtil.fillHostFragmentMapping(bundle);
+            for (Bundle fragment : fragments) {
+                if (isAnAutomationProvider(fragment)) {
+                    addEvent(bundle, event);
+                    break;
+                }
             }
         }
         return bundle;
@@ -245,13 +252,11 @@ public class AutomationResourceBundlesTracker implements BundleTrackerCustomizer
      */
     @SuppressWarnings({ "rawtypes" })
     protected void addEvent(Bundle bundle, BundleEvent event) {
-        if (event == null) {
-            event = initializeEvent(bundle);
-        }
+        BundleEvent e = event != null ? event : initializeEvent(bundle);
         synchronized (queue) {
-            queue.add(event);
+            queue.add(e);
             for (AutomationResourceBundlesEventQueue queue : providerEventsQueue) {
-                queue.addEvent(bundle, event);
+                queue.addEvent(bundle, e);
             }
         }
     }
@@ -276,7 +281,7 @@ public class AutomationResourceBundlesTracker implements BundleTrackerCustomizer
      *         resources, <tt>false</tt> otherwise.
      */
     private boolean isAnAutomationProvider(Bundle bundle) {
-        return bundle.findEntries(AbstractResourceBundleProvider.PATH, null, false) != null;
+        return bundle.getEntryPaths(AbstractResourceBundleProvider.ROOT_DIRECTORY) != null;
     }
 
 }

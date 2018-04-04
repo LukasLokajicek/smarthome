@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.model.script.internal.actions;
 
@@ -65,7 +70,7 @@ public class TimerImpl implements Timer {
                 cancelled = true;
             }
         } catch (SchedulerException e) {
-            logger.warn("An error occured while cancelling the job '{}': {}", jobKey.toString(), e.getMessage());
+            logger.warn("An error occurred while cancelling the job '{}': {}", jobKey.toString(), e.getMessage());
         }
         return cancelled;
     }
@@ -80,7 +85,7 @@ public class TimerImpl implements Timer {
             this.terminated = false;
             return true;
         } catch (SchedulerException e) {
-            logger.warn("An error occured while rescheduling the job '{}': {}", jobKey.toString(), e.getMessage());
+            logger.warn("An error occurred while rescheduling the job '{}': {}", jobKey.toString(), e.getMessage());
             return false;
         }
     }
@@ -96,7 +101,7 @@ public class TimerImpl implements Timer {
             return false;
         } catch (SchedulerException e) {
             // fallback implementation
-            logger.debug("An error occured getting currently running jobs: {}", e.getMessage());
+            logger.debug("An error occurred getting currently running jobs: {}", e.getMessage());
             return DateTime.now().isAfter(startTime) && !terminated;
         }
     }

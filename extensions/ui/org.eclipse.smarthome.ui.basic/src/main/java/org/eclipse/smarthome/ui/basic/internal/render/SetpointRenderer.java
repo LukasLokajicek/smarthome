@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.ui.basic.internal.render;
 
@@ -28,17 +33,11 @@ import org.eclipse.smarthome.ui.basic.render.WidgetRenderer;
  */
 public class SetpointRenderer extends AbstractWidgetRenderer {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean canRender(Widget w) {
         return w instanceof Setpoint;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public EList<Widget> renderWidget(Widget w, StringBuilder sb) throws RenderException {
         Setpoint sp = (Setpoint) w;
@@ -76,6 +75,8 @@ public class SetpointRenderer extends AbstractWidgetRenderer {
             newHigherState = newHigher.toString();
         }
 
+        String unit = getUnitForWidget(w);
+
         String snippetName = "setpoint";
         String snippet = getSnippet(snippetName);
 
@@ -86,6 +87,7 @@ public class SetpointRenderer extends AbstractWidgetRenderer {
         snippet = StringUtils.replace(snippet, "%minValue%", minValue.toString());
         snippet = StringUtils.replace(snippet, "%maxValue%", maxValue.toString());
         snippet = StringUtils.replace(snippet, "%step%", step.toString());
+        snippet = StringUtils.replace(snippet, "%unit%", unit);
 
         // Process the color tags
         snippet = processColor(w, snippet);
@@ -93,4 +95,5 @@ public class SetpointRenderer extends AbstractWidgetRenderer {
         sb.append(snippet);
         return null;
     }
+
 }

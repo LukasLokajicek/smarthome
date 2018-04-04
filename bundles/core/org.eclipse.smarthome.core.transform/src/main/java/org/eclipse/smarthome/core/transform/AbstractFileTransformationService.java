@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.transform;
 
@@ -101,22 +106,15 @@ public abstract class AbstractFileTransformationService<T> implements Transforma
      * Transforms the input <code>source</code> by the according method defined in subclass to another string.
      * It expects the transformation to be read from a file which is stored
      * under the 'conf/transform'
-     * </p>
      *
-     * @param filename
-     *            the name of the file which contains the transformation definition.
+     * @param filename the name of the file which contains the transformation definition.
      *            The name may contain subfoldernames
      *            as well
-     * @param source
-     *            the input to transform
+     * @param source the input to transform
      * @throws TransformationException
-     *
-     * @{inheritDoc
-     *
      */
     @Override
     public String transform(String filename, String source) throws TransformationException {
-
         if (filename == null || source == null) {
             throw new TransformationException("the given parameters 'filename' and 'source' must not be null");
         }
@@ -140,21 +138,15 @@ public abstract class AbstractFileTransformationService<T> implements Transforma
             logger.warn("Could not transform '{}' with the file '{}' : {}", source, filename, e.getMessage());
             return "";
         }
-
     }
 
     /**
      * <p>
      * Abstract method defined by subclasses to effectively operate the
      * transformation according to its rules
-     * </p>
      *
-     * @param transform
-     *            transformation held by the file provided to <code>transform</code> method
-     *
-     * @param source
-     *            the input to transform
-     *
+     * @param transform transformation held by the file provided to <code>transform</code> method
+     * @param source the input to transform
      * @return the transformed result or null if the
      *         transformation couldn't be completed for any reason.
      *
@@ -165,17 +157,11 @@ public abstract class AbstractFileTransformationService<T> implements Transforma
      * <p>
      * Abstract method defined by subclasses to effectively read the transformation
      * source file according to their own needs.
-     * </p>
      *
-     * @param filename
-     *            Name of the file to be read. This filename may have been transposed
+     * @param filename Name of the file to be read. This filename may have been transposed
      *            to a localized one
-     *
-     * @return
-     *         An object containing the source file
-     *
-     * @throws TransformationException
-     *             file couldn't be read for any reason
+     * @return An object containing the source file
+     * @throws TransformationException file couldn't be read for any reason
      */
     protected abstract T internalLoadTransform(String filename) throws TransformationException;
 

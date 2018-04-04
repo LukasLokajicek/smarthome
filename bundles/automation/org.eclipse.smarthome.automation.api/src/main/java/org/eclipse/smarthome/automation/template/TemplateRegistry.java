@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.template;
 
@@ -21,7 +26,7 @@ import org.eclipse.smarthome.core.common.registry.Registry;
  * @author Yordan Mihaylov - Initial Contribution
  * @author Ana Dimova - Initial Contribution
  * @author Vasil Ilchev - Initial Contribution
- * @param <T>
+ * @param <E>
  */
 public interface TemplateRegistry<E extends Template> extends Registry<E, String> {
 
@@ -37,7 +42,8 @@ public interface TemplateRegistry<E extends Template> extends Registry<E, String
     /**
      * This method is used for getting the templates filtered by tag.
      *
-     * @param tag specifies the filter for getting the templates, if it is <code>null</code> then returns all templates.
+     * * @param tag specifies the filter for getting the templates, if it is <code>null</code> then returns all
+     * templates.
      * @return the templates, which correspond to the specified filter.
      */
     public Collection<E> getByTag(String tag);
@@ -71,7 +77,9 @@ public interface TemplateRegistry<E extends Template> extends Registry<E, String
     /**
      * This method is used for getting all templates, localized by specified locale,
      *
-     * @param moduleType the class of module which is looking for.
+     * @param locale specifies the localization for the returned elements.
+     *            If a localization resources for this locale are not available the elements are returned with the
+     *            default localization.
      * @return collection of templates, corresponding to specified type
      */
     public Collection<E> getAll(Locale locale);

@@ -1,30 +1,38 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.yahooweather.handler;
 
 import static org.eclipse.smarthome.binding.yahooweather.YahooWeatherBindingConstants.*;
+import static org.eclipse.smarthome.core.library.unit.MetricPrefix.HECTO;
 
-import java.io.IOException;
 import java.math.BigDecimal;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.io.IOUtils;
+import javax.measure.quantity.Dimensionless;
+import javax.measure.quantity.Pressure;
+import javax.measure.quantity.Temperature;
+
 import org.apache.commons.lang.StringUtils;
-import org.eclipse.smarthome.binding.yahooweather.internal.ExpiringCache;
+import org.eclipse.smarthome.binding.yahooweather.internal.connection.YahooWeatherConnection;
 import org.eclipse.smarthome.config.core.Configuration;
 import org.eclipse.smarthome.config.core.status.ConfigStatusMessage;
-import org.eclipse.smarthome.core.library.types.DecimalType;
+import org.eclipse.smarthome.core.cache.ExpiringCacheMap;
+import org.eclipse.smarthome.core.library.types.QuantityType;
+import org.eclipse.smarthome.core.library.unit.SIUnits;
+import org.eclipse.smarthome.core.library.unit.SmartHomeUnits;
 import org.eclipse.smarthome.core.thing.ChannelUID;
 import org.eclipse.smarthome.core.thing.Thing;
 import org.eclipse.smarthome.core.thing.ThingStatus;
@@ -44,6 +52,10 @@ import org.slf4j.LoggerFactory;
  * @author Kai Kreuzer - Initial contribution
  * @author Stefan Bußweiler - Integrate new thing status handling
  * @author Thomas Höfer - Added config status provider
+ * @author Christoph Weitkamp - Changed use of caching utils to ESH ExpiringCacheMap
+ * @author Gaël L'hopital - Added usage of QuantityType
+ * @author Henning Treu - Added usage of QuantityType
+ *
  */
 public class YahooWeatherHandler extends ConfigStatusThingHandler {
 
@@ -51,8 +63,15 @@ public class YahooWeatherHandler extends ConfigStatusThingHandler {
 
     private final Logger logger = LoggerFactory.getLogger(YahooWeatherHandler.class);
 
-    private final int MAX_DATA_AGE = 3 * 60 * 60 * 1000; // 3h
-    private final int CACHE_EXPIRY = 10 * 1000; // 10s
+    private static final int MAX_DATA_AGE = 3 * 60 * 60 * 1000; // 3h
+    private static final int CACHE_EXPIRY = 10 * 1000; // 10s
+    private static final String CACHE_KEY_CONFIG = "CONFIG_STATUS";
+    private static final String CACHE_KEY_WEATHER = "WEATHER";
+
+    private final ExpiringCacheMap<String, String> cache = new ExpiringCacheMap<>(CACHE_EXPIRY);
+
+    private final YahooWeatherConnection connection = new YahooWeatherConnection();
+
     private long lastUpdateTime;
 
     private BigDecimal location;
@@ -69,7 +88,6 @@ public class YahooWeatherHandler extends ConfigStatusThingHandler {
     @Override
     public void initialize() {
         logger.debug("Initializing YahooWeather handler.");
-        super.initialize();
 
         Configuration config = getThing().getConfiguration();
 
@@ -86,6 +104,11 @@ public class YahooWeatherHandler extends ConfigStatusThingHandler {
             refresh = new BigDecimal(60);
         }
 
+        cache.put(CACHE_KEY_CONFIG, () -> connection.getResponseFromQuery(
+                "SELECT location FROM weather.forecast WHERE woeid = " + location.toPlainString()));
+        cache.put(CACHE_KEY_WEATHER, () -> connection.getResponseFromQuery(
+                "SELECT * FROM weather.forecast WHERE u = 'c' AND woeid = " + location.toPlainString()));
+
         startAutomaticRefresh();
     }
 
@@ -95,23 +118,19 @@ public class YahooWeatherHandler extends ConfigStatusThingHandler {
     }
 
     private void startAutomaticRefresh() {
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    boolean success = updateWeatherData();
-                    if (success) {
-                        updateState(new ChannelUID(getThing().getUID(), CHANNEL_TEMPERATURE), getTemperature());
-                        updateState(new ChannelUID(getThing().getUID(), CHANNEL_HUMIDITY), getHumidity());
-                        updateState(new ChannelUID(getThing().getUID(), CHANNEL_PRESSURE), getPressure());
-                    }
-                } catch (Exception e) {
-                    logger.debug("Exception occurred during execution: {}", e.getMessage(), e);
+        refreshJob = scheduler.scheduleWithFixedDelay(() -> {
+            try {
+                boolean success = updateWeatherData();
+                if (success) {
+                    updateState(new ChannelUID(getThing().getUID(), CHANNEL_TEMPERATURE), getTemperature());
+                    updateState(new ChannelUID(getThing().getUID(), CHANNEL_HUMIDITY), getHumidity());
+                    updateState(new ChannelUID(getThing().getUID(), CHANNEL_PRESSURE), getPressure());
                 }
+            } catch (Exception e) {
+                logger.debug("Exception occurred during execution: {}", e.getMessage(), e);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getMessage());
             }
-        };
-
-        refreshJob = scheduler.scheduleAtFixedRate(runnable, 0, refresh.intValue(), TimeUnit.SECONDS);
+        }, 0, refresh.intValue(), TimeUnit.SECONDS);
     }
 
     @Override
@@ -143,51 +162,44 @@ public class YahooWeatherHandler extends ConfigStatusThingHandler {
     public Collection<ConfigStatusMessage> getConfigStatus() {
         Collection<ConfigStatusMessage> configStatus = new ArrayList<>();
 
-        try {
-            String locationData = getWeatherData(
-                    "SELECT location FROM weather.forecast WHERE woeid = " + location.toPlainString());
+        final String locationData = cache.get(CACHE_KEY_CONFIG);
+        if (locationData != null) {
             String city = getValue(locationData, "location", "city");
             if (city == null) {
                 configStatus.add(ConfigStatusMessage.Builder.error(LOCATION_PARAM)
                         .withMessageKeySuffix("location-not-found").withArguments(location.toPlainString()).build());
             }
-        } catch (IOException e) {
-            logger.debug("Communication error occurred while getting Yahoo weather information.", e);
         }
 
         return configStatus;
     }
 
     private synchronized boolean updateWeatherData() {
-        try {
-            String data = getWeatherData(
-                    "SELECT * FROM weather.forecast WHERE u = 'c' AND woeid = " + location.toPlainString());
-            if (data != null) {
-                if (data.contains("\"results\":null")) {
-                    if (isCurrentDataExpired()) {
-                        weatherData = null;
-                        logger.trace(
-                                "The Yahoo Weather API did not return any data. Omiting the old result because it became too old.");
-                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR,
-                                "The Yahoo Weather API did not return any data.");
-                        return false;
-                    } else {
-                        // simply keep the old data
-                        logger.trace("The Yahoo Weather API did not return any data. Keeping the old result.");
-                        return false;
-                    }
+        final String data = cache.get(CACHE_KEY_WEATHER);
+        if (data != null) {
+            if (data.contains("\"results\":null")) {
+                if (isCurrentDataExpired()) {
+                    logger.trace(
+                            "The Yahoo Weather API did not return any data. Omiting the old result because it became too old.");
+                    weatherData = null;
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR,
+                            "@text/offline.no-data");
+                    return false;
                 } else {
-                    lastUpdateTime = System.currentTimeMillis();
-                    weatherData = data;
+                    // simply keep the old data
+                    logger.trace("The Yahoo Weather API did not return any data. Keeping the old result.");
+                    return false;
                 }
-                updateStatus(ThingStatus.ONLINE);
-                return true;
+            } else {
+                lastUpdateTime = System.currentTimeMillis();
+                weatherData = data;
             }
-        } catch (IOException e) {
-            logger.warn("Error accessing Yahoo weather: {}", e.getMessage());
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.ONLINE);
+            return true;
         }
         weatherData = null;
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR,
+                "@text/offline.location [\"" + location.toPlainString() + "\"");
         return false;
     }
 
@@ -195,47 +207,34 @@ public class YahooWeatherHandler extends ConfigStatusThingHandler {
         return lastUpdateTime + MAX_DATA_AGE < System.currentTimeMillis();
     }
 
-    private final ExpiringCache<String, String> CACHE = new ExpiringCache<String, String>(CACHE_EXPIRY,
-            new ExpiringCache.LoadAction<String, String>() {
-                @Override
-                public String load(String query) throws IOException {
-                    try {
-                        URL url = new URL("https://query.yahooapis.com/v1/public/yql?format=json&q="
-                                + query.replaceAll(" ", "%20").replaceAll("'", "%27"));
-                        URLConnection connection = url.openConnection();
-                        return IOUtils.toString(connection.getInputStream());
-                    } catch (MalformedURLException e) {
-                        logger.debug("Constructed query url '{}' is not valid: {}", query, e.getMessage());
-                        throw e;
-                    }
-                }
-            });
-
-    private String getWeatherData(String query) throws IOException {
-        return CACHE.get(query);
-    }
-
     private State getHumidity() {
         if (weatherData != null) {
             String humidity = getValue(weatherData, "atmosphere", "humidity");
             if (humidity != null) {
-                return new DecimalType(humidity);
+                return new QuantityType<Dimensionless>(Double.parseDouble(humidity), SmartHomeUnits.PERCENT);
             }
         }
         return UnDefType.UNDEF;
     }
 
     private State getPressure() {
+        State result = UnDefType.UNDEF;
         if (weatherData != null) {
             String pressure = getValue(weatherData, "atmosphere", "pressure");
             if (pressure != null) {
-                DecimalType ret = new DecimalType(pressure);
-                if (ret.doubleValue() > 10000.0) {
-                    // Unreasonably high, record so far was 1085,8 hPa
-                    // The Yahoo API currently returns inHg values although it claims they are mbar - therefore convert
-                    ret = new DecimalType(BigDecimal.valueOf((long) (ret.doubleValue() / 0.3386388158), 2));
+                double pressDouble = Double.parseDouble(pressure);
+                if (pressDouble > 10000) {
+                    // The Yahoo! waether API delivers wrong pressure values. Instead of the requested mbar
+                    // it responds with mbar * 33.86 which is somehow inHg*1000.
+                    // This is documented in several issues:
+                    // https://github.com/pvizeli/yahooweather/issues/2
+                    // https://github.com/monkeecreate/jquery.simpleWeather/issues/227
+                    // So we provide a "special" unit here:
+                    result = new QuantityType<Pressure>(pressDouble / 33.86d, HECTO(SIUnits.PASCAL));
+                } else {
+                    result = new QuantityType<Pressure>(pressDouble, HECTO(SIUnits.PASCAL));
                 }
-                return ret;
+                return result;
             }
         }
         return UnDefType.UNDEF;
@@ -245,7 +244,7 @@ public class YahooWeatherHandler extends ConfigStatusThingHandler {
         if (weatherData != null) {
             String temp = getValue(weatherData, "condition", "temp");
             if (temp != null) {
-                return new DecimalType(temp);
+                return new QuantityType<Temperature>(Double.parseDouble(temp), SIUnits.CELSIUS);
             }
         }
         return UnDefType.UNDEF;

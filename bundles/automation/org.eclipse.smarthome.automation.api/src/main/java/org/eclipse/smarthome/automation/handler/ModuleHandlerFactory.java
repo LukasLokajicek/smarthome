@@ -1,14 +1,21 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.handler;
 
 import java.util.Collection;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.automation.Module;
 
 /**
@@ -22,32 +29,34 @@ import org.eclipse.smarthome.automation.Module;
  * @author Yordan Mihaylov - Initial Contribution
  * @author Benedikt Niehues - change behavior for unregistering ModuleHandler
  */
+@NonNullByDefault
 public interface ModuleHandlerFactory {
 
     /**
      * This method is used to return UIDs of module types supported by this {@link ModuleHandlerFactory}
      *
-     * @return collection of module type unequal ids supported by this factory.
+     * @return collection of module type UID supported by this factory (instead of an empty collection null could be
+     *         returned).
      */
-    public Collection<String> getTypes();
+    @Nullable
+    Collection<String> getTypes();
 
     /**
      * This method is used to get a ModuleHandler instance for the passed module
      * instance
      *
-     * @param module module instance for which the {@link ModuleHandler} instance is
-     *            created for.
-     *
-     * @return ModuleHandler instance.
+     * @param module module instance for which the {@link ModuleHandler} instance is created.
+     * @param ruleUID the UID of the rule for which the handler instance is created.
+     * @return {@link ModuleHandler} instance.
      */
-    public ModuleHandler getHandler(Module module, String ruleUID);
+    ModuleHandler getHandler(Module module, String ruleUID);
 
     /**
-     * This method signalizes the Factory that a ModuleHandler for the passed module is not needed anymore. Implementors
+     * This method signalises the Factory that a ModuleHandler for the passed module is not needed anymore. Implementors
      * must take care of invalidating caches and disposing the Handlers.
-     * 
+     *
      * @param module
      */
-    public void ungetHandler(Module module, String ruleUID, ModuleHandler handler);
+    void ungetHandler(Module module, String ruleUID, ModuleHandler handler);
 
 }

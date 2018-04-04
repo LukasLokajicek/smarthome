@@ -1,12 +1,18 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.extension.sample.internal;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -74,18 +80,21 @@ public class SampleExtensionService implements ExtensionService {
         }
     }
 
-    private static final Random random = new Random();
+    private static final Random RANDOM = new Random();
 
     private String createRandomColor() {
         StringBuilder ret = new StringBuilder("#");
         for (int i = 0; i < 3; i++) {
-            ret.append(COLOR_VALUES[random.nextInt(COLOR_VALUES.length)]);
+            ret.append(COLOR_VALUES[RANDOM.nextInt(COLOR_VALUES.length)]);
         }
         return ret.toString();
     }
 
     private String createDescription() {
-        int index = StringUtils.indexOf(LOREM_IPSUM, ' ', random.nextInt(LOREM_IPSUM.length()));
+        int index = StringUtils.indexOf(LOREM_IPSUM, ' ', RANDOM.nextInt(LOREM_IPSUM.length()));
+        if (index < 0) {
+            index = LOREM_IPSUM.length();
+        }
         return LOREM_IPSUM.substring(0, index);
     }
 
@@ -131,6 +140,11 @@ public class SampleExtensionService implements ExtensionService {
         return types;
     }
 
+    @Override
+    public String getExtensionId(URI extensionURI) {
+        return null;
+    }
+
     private void postInstalledEvent(String extensionId) {
         if (eventPublisher != null) {
             Event event = ExtensionEventFactory.createExtensionInstalledEvent(extensionId);
@@ -144,4 +158,5 @@ public class SampleExtensionService implements ExtensionService {
             eventPublisher.post(event);
         }
     }
+
 }

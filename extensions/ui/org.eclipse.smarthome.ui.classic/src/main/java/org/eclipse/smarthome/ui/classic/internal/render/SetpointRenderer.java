@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.ui.classic.internal.render;
 
@@ -12,6 +17,7 @@ import java.math.BigDecimal;
 import org.apache.commons.lang.StringUtils;
 import org.eclipse.emf.common.util.EList;
 import org.eclipse.smarthome.core.library.types.DecimalType;
+import org.eclipse.smarthome.core.library.types.QuantityType;
 import org.eclipse.smarthome.core.types.State;
 import org.eclipse.smarthome.model.sitemap.Setpoint;
 import org.eclipse.smarthome.model.sitemap.Widget;
@@ -28,17 +34,11 @@ import org.eclipse.smarthome.ui.classic.render.WidgetRenderer;
  */
 public class SetpointRenderer extends AbstractWidgetRenderer {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean canRender(Widget w) {
         return w instanceof Setpoint;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public EList<Widget> renderWidget(Widget w, StringBuilder sb) throws RenderException {
         Setpoint sp = (Setpoint) w;
@@ -62,10 +62,15 @@ public class SetpointRenderer extends AbstractWidgetRenderer {
         }
 
         // if the current state is a valid value, we calculate the up and down step values
-        if (state instanceof DecimalType) {
-            DecimalType actState = (DecimalType) state;
-            BigDecimal newLower = actState.toBigDecimal().subtract(step);
-            BigDecimal newHigher = actState.toBigDecimal().add(step);
+        if (state instanceof DecimalType || state instanceof QuantityType) {
+            BigDecimal currentState;
+            if (state instanceof DecimalType) {
+                currentState = ((DecimalType) state).toBigDecimal();
+            } else {
+                currentState = ((QuantityType<?>) state).toBigDecimal();
+            }
+            BigDecimal newLower = currentState.subtract(step);
+            BigDecimal newHigher = currentState.add(step);
             if (newLower.compareTo(minValue) < 0) {
                 newLower = minValue;
             }
@@ -74,15 +79,20 @@ public class SetpointRenderer extends AbstractWidgetRenderer {
             }
             newLowerState = newLower.toString();
             newHigherState = newHigher.toString();
+
+            if (state instanceof QuantityType) {
+                newLowerState = newLowerState + " " + ((QuantityType<?>) state).getUnit().toString();
+                newHigherState = newHigherState + " " + ((QuantityType<?>) state).getUnit().toString();
+            }
         }
 
         String snippetName = "setpoint";
         String snippet = getSnippet(snippetName);
 
         snippet = StringUtils.replace(snippet, "%id%", itemUIRegistry.getWidgetId(w));
-        snippet = StringUtils.replace(snippet, "%category%", escapeURLPath(itemUIRegistry.getCategory(w)));
+        snippet = StringUtils.replace(snippet, "%category%", getCategory(w));
         snippet = StringUtils.replace(snippet, "%item%", w.getItem());
-        snippet = StringUtils.replace(snippet, "%state%", state.toString());
+        snippet = StringUtils.replace(snippet, "%state%", getState(w));
         snippet = StringUtils.replace(snippet, "%newlowerstate%", newLowerState);
         snippet = StringUtils.replace(snippet, "%newhigherstate%", newHigherState);
         snippet = StringUtils.replace(snippet, "%label%", getLabel(w));

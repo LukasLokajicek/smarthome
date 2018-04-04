@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.io.rest.sitemap.internal;
 
@@ -12,6 +17,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import org.eclipse.emf.common.util.EList;
 import org.eclipse.smarthome.core.items.GenericItem;
@@ -19,6 +25,7 @@ import org.eclipse.smarthome.core.items.GroupItem;
 import org.eclipse.smarthome.core.items.Item;
 import org.eclipse.smarthome.core.items.ItemNotFoundException;
 import org.eclipse.smarthome.core.items.StateChangeListener;
+import org.eclipse.smarthome.core.library.CoreItemFactory;
 import org.eclipse.smarthome.core.types.State;
 import org.eclipse.smarthome.io.rest.core.item.EnrichedItemDTOMapper;
 import org.eclipse.smarthome.io.rest.sitemap.SitemapSubscriptionService.SitemapSubscriptionCallback;
@@ -38,8 +45,8 @@ public class PageChangeListener implements StateChangeListener {
     private final String sitemapName;
     private final String pageId;
     private final ItemUIRegistry itemUIRegistry;
-    private final EList<Widget> widgets;
-    private final Set<Item> items;
+    private EList<Widget> widgets;
+    private Set<Item> items;
     private final List<SitemapSubscriptionCallback> callbacks = Collections
             .synchronizedList(new ArrayList<SitemapSubscriptionCallback>());
     private Set<SitemapSubscriptionCallback> distinctCallbacks = Collections.emptySet();
@@ -56,13 +63,26 @@ public class PageChangeListener implements StateChangeListener {
         this.sitemapName = sitemapName;
         this.pageId = pageId;
         this.itemUIRegistry = itemUIRegistry;
+
+        updateItemsAndWidgets(widgets);
+    }
+
+    private void updateItemsAndWidgets(EList<Widget> widgets) {
+        if (this.widgets != null) {
+            // cleanup statechange listeners in case widgets were removed
+            items = getAllItems(this.widgets);
+            for (Item item : items) {
+                if (item instanceof GenericItem) {
+                    ((GenericItem) item).removeStateChangeListener(this);
+                }
+            }
+        }
+
         this.widgets = widgets;
         items = getAllItems(widgets);
         for (Item item : items) {
             if (item instanceof GenericItem) {
                 ((GenericItem) item).addStateChangeListener(this);
-            } else if (item instanceof GroupItem) {
-                ((GroupItem) item).addStateChangeListener(this);
             }
         }
     }
@@ -110,18 +130,13 @@ public class PageChangeListener implements StateChangeListener {
         Set<Item> items = new HashSet<Item>();
         if (itemUIRegistry != null) {
             for (Widget widget : widgets) {
-                String itemName = widget.getItem();
-                if (itemName != null) {
-                    addItemWithName(items, itemName);
-                } else {
-                    if (widget instanceof Frame) {
-                        items.addAll(getAllItems(((Frame) widget).getChildren()));
-                    }
+                addItemWithName(items, widget.getItem());
+                if (widget instanceof Frame) {
+                    items.addAll(getAllItems(((Frame) widget).getChildren()));
                 }
                 // now scan visibility rules
                 for (VisibilityRule vr : widget.getVisibility()) {
-                    String ruleItemName = vr.getItem();
-                    addItemWithName(items, ruleItemName);
+                    addItemWithName(items, vr.getItem());
                 }
             }
         }
@@ -141,7 +156,11 @@ public class PageChangeListener implements StateChangeListener {
 
     @Override
     public void stateChanged(Item item, State oldState, State newState) {
-        Set<SitemapEvent> events = constructSitemapEvents(item, oldState, newState, widgets);
+        // For all items except group, send an event only when the event state is changed.
+        if (item instanceof GroupItem) {
+            return;
+        }
+        Set<SitemapEvent> events = constructSitemapEvents(item, widgets);
         for (SitemapEvent event : events) {
             for (SitemapSubscriptionCallback callback : distinctCallbacks) {
                 callback.onEvent(event);
@@ -151,13 +170,25 @@ public class PageChangeListener implements StateChangeListener {
 
     @Override
     public void stateUpdated(Item item, State state) {
+        // For group item only, send an event each time the event state is updated.
+        // It allows updating the group label while the group state is unchanged,
+        // for example the count in label for Group:Switch:OR
+        if (!(item instanceof GroupItem)) {
+            return;
+        }
+        Set<SitemapEvent> events = constructSitemapEvents(item, widgets);
+        for (SitemapEvent event : events) {
+            for (SitemapSubscriptionCallback callback : distinctCallbacks) {
+                callback.onEvent(event);
+            }
+        }
     }
 
-    private Set<SitemapEvent> constructSitemapEvents(Item item, State oldState, State newState, List<Widget> widgets) {
+    private Set<SitemapEvent> constructSitemapEvents(Item item, List<Widget> widgets) {
         Set<SitemapEvent> events = new HashSet<>();
         for (Widget w : widgets) {
             if (w instanceof Frame) {
-                events.addAll(constructSitemapEvents(item, oldState, newState, ((Frame) w).getChildren()));
+                events.addAll(constructSitemapEvents(item, itemUIRegistry.getChildren((Frame) w)));
             }
 
             if ((w.getItem() != null && w.getItem().equals(item.getName())) || definesVisibility(w, item.getName())) {
@@ -169,7 +200,20 @@ public class PageChangeListener implements StateChangeListener {
                 event.valuecolor = itemUIRegistry.getValueColor(w);
                 event.widgetId = itemUIRegistry.getWidgetId(w);
                 event.visibility = itemUIRegistry.getVisiblity(w);
-                event.item = EnrichedItemDTOMapper.map(item, false, null, null);
+                // event.item contains data from the item including its state (in event.item.state)
+                String widgetTypeName = w.eClass().getInstanceTypeName()
+                        .substring(w.eClass().getInstanceTypeName().lastIndexOf(".") + 1);
+                boolean drillDown = "mapview".equalsIgnoreCase(widgetTypeName);
+                Predicate<Item> itemFilter = (i -> i.getType().equals(CoreItemFactory.LOCATION));
+                event.item = EnrichedItemDTOMapper.map(item, drillDown, itemFilter, null, null);
+
+                // event.state is an adjustment of the item state to the widget type.
+                event.state = itemUIRegistry.getState(w).toFullString();
+                // In case this state is identical to the item state, its value is set to null.
+                if (event.state != null && event.state.equals(event.item.state)) {
+                    event.state = null;
+                }
+
                 events.add(event);
             }
         }
@@ -183,6 +227,15 @@ public class PageChangeListener implements StateChangeListener {
             }
         }
         return false;
+    }
+
+    public void sitemapContentChanged() {
+        SitemapChangedEvent changeEvent = new SitemapChangedEvent();
+        changeEvent.pageId = pageId;
+        changeEvent.sitemapName = sitemapName;
+        for (SitemapSubscriptionCallback callback : distinctCallbacks) {
+            callback.onEvent(changeEvent);
+        }
     }
 
 }

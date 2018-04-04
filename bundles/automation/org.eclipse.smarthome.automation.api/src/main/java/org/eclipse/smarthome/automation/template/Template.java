@@ -1,16 +1,24 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.template;
 
 import java.util.Set;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.automation.Rule;
 import org.eclipse.smarthome.automation.Visibility;
+import org.eclipse.smarthome.core.common.registry.Identifiable;
 
 /**
  * The templates define types of shared, ready to use rule definitions, which
@@ -26,7 +34,8 @@ import org.eclipse.smarthome.automation.Visibility;
  * @author Ana Dimova - Initial Contribution
  * @author Vasil Ilchev - Initial Contribution
  */
-public interface Template {
+@NonNullByDefault
+public interface Template extends Identifiable<String> {
 
     /**
      * This method is used for getting the type of Template. It is unique in scope
@@ -34,12 +43,15 @@ public interface Template {
      *
      * @return the unique id of Template.
      */
+    @Override
     public String getUID();
 
     /**
      * Templates can have
+     * <ul>
      * <li><code>tags</code> - non-hierarchical keywords or terms for describing them. The tags are
-     * used to filter the templates. This method is used for getting the assign tags to this Template.
+     * used to filter the templates. This method is used for getting the assign tags to this Template.</li>
+     * </ul>
      *
      * @return tags of the template
      */
@@ -51,7 +63,7 @@ public interface Template {
      *
      * @return the label of the Template.
      */
-    public String getLabel();
+    public @Nullable String getLabel();
 
     /**
      * This method is used for getting the description of the Template. The
@@ -60,7 +72,7 @@ public interface Template {
      *
      * @return the description of the Template.
      */
-    public String getDescription();
+    public @Nullable String getDescription();
 
     /**
      * This method is used to show visibility of the template

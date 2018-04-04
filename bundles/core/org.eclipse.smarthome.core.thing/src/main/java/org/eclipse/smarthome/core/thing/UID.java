@@ -1,15 +1,19 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing;
 
 import java.util.Arrays;
-
-import com.google.common.base.Joiner;
+import java.util.stream.Collectors;
 
 /**
  * {@link UID} is the base class for unique identifiers within the SmartHome
@@ -23,7 +27,7 @@ public abstract class UID {
 
     public static final String SEGMENT_PATTERN = "[A-Za-z0-9_-]*";
     public static final String SEPARATOR = ":";
-    private String[] segments;
+    private final String[] segments;
 
     /**
      * Constructor must be public, otherwise it can not be called by subclasses from another package.
@@ -36,8 +40,7 @@ public abstract class UID {
      * Parses a UID for a given string. The UID must be in the format
      * 'bindingId:segment:segment:...'.
      *
-     * @param uid
-     *            uid in form a string (must not be null)
+     * @param uid uid in form a string (must not be null)
      */
     public UID(String uid) {
         this(splitToSegments(uid));
@@ -53,8 +56,7 @@ public abstract class UID {
     /**
      * Creates a UID for list of segments.
      *
-     * @param segments
-     *            segments (must not be null)
+     * @param segments segments (must not be null)
      */
     public UID(String... segments) {
         if (segments == null) {
@@ -108,7 +110,7 @@ public abstract class UID {
     }
 
     public String getAsString() {
-        return Joiner.on(SEPARATOR).join(segments);
+        return Arrays.stream(segments).collect(Collectors.joining(SEPARATOR));
     }
 
     @Override

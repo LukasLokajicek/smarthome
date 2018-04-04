@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.config.core.status;
 
@@ -16,10 +21,14 @@ import java.util.concurrent.ExecutorService;
 import org.eclipse.smarthome.config.core.status.events.ConfigStatusInfoEvent;
 import org.eclipse.smarthome.core.common.ThreadPoolManager;
 import org.eclipse.smarthome.core.events.EventPublisher;
-import org.eclipse.smarthome.core.i18n.I18nProvider;
 import org.eclipse.smarthome.core.i18n.LocaleProvider;
+import org.eclipse.smarthome.core.i18n.TranslationProvider;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.FrameworkUtil;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,6 +41,7 @@ import org.slf4j.LoggerFactory;
  * @author Chris Jackson - Allow null messages
  * @author Markus Rathgeb - Add locale provider support
  */
+@Component(immediate = true, service = { ConfigStatusService.class })
 public final class ConfigStatusService implements ConfigStatusCallback {
 
     private final Logger logger = LoggerFactory.getLogger(ConfigStatusService.class);
@@ -39,7 +49,7 @@ public final class ConfigStatusService implements ConfigStatusCallback {
     private final List<ConfigStatusProvider> configStatusProviders = new CopyOnWriteArrayList<>();
     private EventPublisher eventPublisher;
     private LocaleProvider localeProvider;
-    private I18nProvider i18nProvider;
+    private TranslationProvider i18nProvider;
 
     private final ExecutorService executorService = ThreadPoolManager
             .getPool(ConfigStatusService.class.getSimpleName());
@@ -52,10 +62,8 @@ public final class ConfigStatusService implements ConfigStatusCallback {
      *            be null or empty)
      * @param locale the locale to be used for the corresponding configuration status messages; if null then the
      *            default local will be used
-     *
      * @return the {@link ConfigStatusInfo} or null if there is no {@link ConfigStatusProvider} registered that
      *         supports the given entity
-     *
      * @throws IllegalArgumentException if given entityId is null or empty
      */
     public ConfigStatusInfo getConfigStatus(String entityId, final Locale locale) {
@@ -87,8 +95,8 @@ public final class ConfigStatusService implements ConfigStatusCallback {
                     if (eventPublisher != null) {
                         eventPublisher.post(new ConfigStatusInfoEvent(configStatusSource.getTopic(), info));
                     } else {
-                        logger.warn("EventPublisher not available. Cannot post new config status for entity "
-                                + configStatusSource.entityId);
+                        logger.warn("EventPublisher not available. Cannot post new config status for entity {}",
+                                configStatusSource.entityId);
                     }
                 }
             }
@@ -128,6 +136,7 @@ public final class ConfigStatusService implements ConfigStatusCallback {
         return info;
     }
 
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
     protected void addConfigStatusProvider(ConfigStatusProvider configStatusProvider) {
         configStatusProvider.setConfigStatusCallback(this);
         configStatusProviders.add(configStatusProvider);
@@ -138,6 +147,7 @@ public final class ConfigStatusService implements ConfigStatusCallback {
         configStatusProviders.remove(configStatusProvider);
     }
 
+    @Reference(policy = ReferencePolicy.DYNAMIC)
     protected void setEventPublisher(EventPublisher eventPublisher) {
         this.eventPublisher = eventPublisher;
     }
@@ -146,6 +156,7 @@ public final class ConfigStatusService implements ConfigStatusCallback {
         this.eventPublisher = null;
     }
 
+    @Reference
     protected void setLocaleProvider(LocaleProvider localeProvider) {
         this.localeProvider = localeProvider;
     }
@@ -154,11 +165,12 @@ public final class ConfigStatusService implements ConfigStatusCallback {
         this.localeProvider = null;
     }
 
-    protected void setI18nProvider(I18nProvider i18nProvider) {
+    @Reference
+    protected void setTranslationProvider(TranslationProvider i18nProvider) {
         this.i18nProvider = i18nProvider;
     }
 
-    protected void unsetI18nProvider(I18nProvider i18nProvider) {
+    protected void unsetTranslationProvider(TranslationProvider i18nProvider) {
         this.i18nProvider = null;
     }
 }

@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.io.transport.mdns.internal;
 
@@ -65,9 +70,6 @@ public class MDNSClientImpl implements MDNSClient {
         return addresses;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<JmDNS> getClientInstances() {
         return jmdnsInstances;
@@ -80,12 +82,8 @@ public class MDNSClientImpl implements MDNSClient {
                 jmdnsInstances.add(jmdns);
                 logger.debug("mDNS service has been started ({} for IP {})", jmdns.getName(), address.getHostAddress());
             } catch (IOException e) {
-                logger.debug("JmDNS instanciation failed ({})!", address.getHostAddress());
+                logger.debug("JmDNS instantiation failed ({})!", address.getHostAddress());
             }
-        }
-        if (jmdnsInstances.isEmpty()) {
-            // we must cancel the activation of this component here
-            throw new IllegalStateException("No mDNS service has been started");
         }
     }
 
@@ -93,9 +91,6 @@ public class MDNSClientImpl implements MDNSClient {
         close();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void addServiceListener(String type, ServiceListener listener) {
         for (JmDNS instance : jmdnsInstances) {
@@ -103,9 +98,6 @@ public class MDNSClientImpl implements MDNSClient {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void removeServiceListener(String type, ServiceListener listener) {
         for (JmDNS instance : jmdnsInstances) {
@@ -113,9 +105,6 @@ public class MDNSClientImpl implements MDNSClient {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void registerService(ServiceDescription description) throws IOException {
         for (JmDNS instance : jmdnsInstances) {
@@ -128,9 +117,6 @@ public class MDNSClientImpl implements MDNSClient {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void unregisterService(ServiceDescription description) {
         for (JmDNS instance : jmdnsInstances) {
@@ -146,9 +132,6 @@ public class MDNSClientImpl implements MDNSClient {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void unregisterAllServices() {
         for (JmDNS instance : jmdnsInstances) {
@@ -156,9 +139,6 @@ public class MDNSClientImpl implements MDNSClient {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public ServiceInfo[] list(String type) {
         ServiceInfo[] services = new ServiceInfo[0];
@@ -168,9 +148,6 @@ public class MDNSClientImpl implements MDNSClient {
         return services;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void close() {
         for (JmDNS jmdns : jmdnsInstances) {

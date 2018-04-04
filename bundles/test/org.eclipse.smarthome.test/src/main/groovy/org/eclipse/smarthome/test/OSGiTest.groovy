@@ -1,15 +1,22 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.test
 
 import static org.hamcrest.CoreMatchers.*
 import static org.junit.Assert.*
 import static org.junit.matchers.JUnitMatchers.*
+
+import java.util.concurrent.TimeUnit
 
 import org.eclipse.smarthome.core.autoupdate.AutoUpdateBindingConfigProvider
 import org.eclipse.smarthome.test.storage.VolatileStorageService
@@ -32,7 +39,7 @@ import org.osgi.framework.ServiceRegistration
 abstract class OSGiTest {
 
     BundleContext bundleContext
-    Map<String, ServiceRegistration> registeredServices = [:]
+    Map<String, List<ServiceRegistration<?>>> registeredServices = [:]
 
     @Before
     public void bindBundleContext() {
@@ -97,6 +104,15 @@ abstract class OSGiTest {
         })
     }
 
+    private void saveServiceRegistration(final String interfaceName, final ServiceRegistration<?> srvReg) {
+        List<ServiceRegistration<?>> regs = registeredServices.get(interfaceName)
+        if (regs == null) {
+            regs = []
+            registeredServices.put(interfaceName, regs);
+        }
+        regs.add(srvReg);
+    }
+
     /**
      * Registers the given object as OSGi service. The first interface is used as OSGi service
      * interface name.
@@ -108,7 +124,10 @@ abstract class OSGiTest {
     protected registerService(def service, Hashtable properties = [:]) {
         def interfaceName = getInterfaceName(service)
         assertThat interfaceName, is(notNullValue())
-        registeredServices.put(interfaceName, bundleContext.registerService(interfaceName, service, properties))
+        def ServiceRegistration registration = bundleContext.registerService(interfaceName, service, properties)
+        assertThat registration, is(notNullValue())
+        saveServiceRegistration(interfaceName, registration)
+        return registration
     }
 
     /**
@@ -122,15 +141,31 @@ abstract class OSGiTest {
      */
     protected registerService(def service, String interfaceName, Hashtable properties = [:]) {
         assertThat interfaceName, is(notNullValue())
-        registeredServices.put(interfaceName, bundleContext.registerService(interfaceName, service, properties))
+        def ServiceRegistration registration = bundleContext.registerService(interfaceName, service, properties);
+        assertThat registration, is(notNullValue())
+        saveServiceRegistration(interfaceName, registration)
+        return registration;
     }
 
+
+
+    /**
+     * Registers the given object as OSGi service. The given interface names as String array are used as OSGi service
+     * interface names.
+     *
+     * @param service service to be registered
+     * @param interfaceNames interface names of the OSGi service
+     * @param properties OSGi service properties
+     * @return service registration object
+     */
     protected registerService(def service, String[] interfaceNames, Hashtable properties = [:]) {
         assertThat interfaceNames, is(notNullValue())
-        def ServiceRegistration ref = bundleContext.registerService(interfaceNames, service, properties)
+        def ServiceRegistration registration = bundleContext.registerService(interfaceNames, service, properties)
+        assertThat registration, is(notNullValue())
         for (String i : interfaceNames) {
-            registeredServices.put(i, ref)
+            saveServiceRegistration(i, ref)
         }
+        return registration;
     }
 
     /**
@@ -139,20 +174,19 @@ abstract class OSGiTest {
      * the service itself the interface name is taken from the first interface of the service object.
      *
      * @param service service or service interface name
-     * @return the service registration that was unregistered or null if no service could be found
+     * @return the first service registration that was unregistered or null if no service could be found
      */
     protected unregisterService(def service) {
         def interfaceName = service instanceof String ? service : getInterfaceName(service)
-        ServiceRegistration reg = registeredServices.remove(interfaceName)
-        if (reg != null) {
-            reg.unregister()
+        def reg = null
+        List<ServiceRegistration<?>> regList = registeredServices.remove(interfaceName)
+
+        if (regList != null) {
+            reg = regList.get(0)
+            regList.each { it.unregister() }
         }
-        Iterator<ServiceRegistration> regs = registeredServices.values().iterator()
-        for (ServiceRegistration otherReg : regs) {
-            if (otherReg == reg) {
-                regs.remove()
-            }
-        }
+
+        return reg
     }
 
     /**
@@ -201,14 +235,14 @@ abstract class OSGiTest {
      * @param timeout timeout, default is 10000ms
      * @param sleepTime interval for checking the condition, default is 50ms
      */
-    protected void waitForAssert(Closure<?> assertion, Closure<?> beforeLastCall, int timeout = 10000, int sleepTime = 50) {
-        def waitingTime = 0
-        while(waitingTime < timeout) {
+    protected void waitForAssert(Closure<?> assertion, Closure<?> beforeLastCall, long timeout = 10000, int sleepTime = 50) {
+        final long timeoutNs = TimeUnit.MILLISECONDS.toNanos(timeout);
+        final long startingTime = System.nanoTime();
+        while((System.nanoTime() - startingTime) < timeoutNs) {
             try {
                 assertion()
                 return
             } catch(Error | NullPointerException error) {
-                waitingTime += sleepTime
                 sleep sleepTime
             }
         }
@@ -237,8 +271,8 @@ abstract class OSGiTest {
 
     @After
     public void unregisterMocks() {
-        registeredServices.each() { interfaceName, service ->
-            service.unregister()
+        registeredServices.each() { interfaceName, services ->
+            services.each { it.unregister() }
         }
         registeredServices.clear()
     }
@@ -251,11 +285,32 @@ abstract class OSGiTest {
         registerService(autoupdateConfig)
     }
 
-    protected void enableItemAutoUpdate(){
-        def autoupdateConfig = [
-            autoUpdate: { String itemName -> return true }
+    protected void setDefaultLocale(Locale locale) {
+        assertThat locale, is(notNullValue())
 
-        ] as AutoUpdateBindingConfigProvider
-        registerService(autoupdateConfig)
+        def configAdmin = getService(Class.forName("org.osgi.service.cm.ConfigurationAdmin"))
+        assertThat configAdmin, is(notNullValue())
+
+        def localeProvider = getService(Class.forName("org.eclipse.smarthome.core.i18n.LocaleProvider"))
+        assertThat localeProvider, is(notNullValue())
+
+        def config = configAdmin.getConfiguration("org.eclipse.smarthome.core.i18nprovider", null)
+        assertThat config, is(notNullValue())
+
+        def properties = config.getProperties()
+        if (properties == null) {
+            properties = new Hashtable()
+        }
+
+        properties.put("language", locale.getLanguage())
+        properties.put("script", locale.getScript())
+        properties.put("region", locale.getCountry())
+        properties.put("variant", locale.getVariant())
+
+        config.update(properties)
+
+        waitForAssert {
+            assertThat localeProvider.getLocale(), is(locale)
+        }
     }
 }

@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.config.discovery;
 
@@ -19,9 +24,17 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
+import org.eclipse.smarthome.config.discovery.internal.DiscoveryResultImpl;
 import org.eclipse.smarthome.core.common.ThreadPoolManager;
+import org.eclipse.smarthome.core.i18n.I18nUtil;
+import org.eclipse.smarthome.core.i18n.LocaleProvider;
+import org.eclipse.smarthome.core.i18n.TranslationProvider;
 import org.eclipse.smarthome.core.thing.ThingTypeUID;
 import org.eclipse.smarthome.core.thing.ThingUID;
+import org.osgi.framework.Bundle;
+import org.osgi.framework.FrameworkUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,49 +50,46 @@ import org.slf4j.LoggerFactory;
  * @author Dennis Nobel - Added background discovery configuration through Configuration Admin
  * @author Andre Fuechsel - Added removeOlderResults
  */
+@NonNullByDefault
 public abstract class AbstractDiscoveryService implements DiscoveryService {
 
     private static final String DISCOVERY_THREADPOOL_NAME = "discovery";
 
     private final Logger logger = LoggerFactory.getLogger(AbstractDiscoveryService.class);
 
-    static protected final ScheduledExecutorService scheduler = ThreadPoolManager.getScheduledPool(DISCOVERY_THREADPOOL_NAME);
+    protected final ScheduledExecutorService scheduler = ThreadPoolManager.getScheduledPool(DISCOVERY_THREADPOOL_NAME);
 
-    private Set<DiscoveryListener> discoveryListeners = new CopyOnWriteArraySet<>();
-    protected ScanListener scanListener = null;
+    private final Set<DiscoveryListener> discoveryListeners = new CopyOnWriteArraySet<>();
+    protected @Nullable ScanListener scanListener = null;
 
     private boolean backgroundDiscoveryEnabled;
 
-    private Map<ThingUID, DiscoveryResult> cachedResults = new HashMap<>();
+    private final Map<ThingUID, DiscoveryResult> cachedResults = new HashMap<>();
 
-    final private Set<ThingTypeUID> supportedThingTypes;
-    final private int timeout;
+    private final Set<ThingTypeUID> supportedThingTypes;
+    private final int timeout;
 
     private long timestampOfLastScan = 0L;
 
-    private ScheduledFuture<?> scheduledStop;
+    private @Nullable ScheduledFuture<?> scheduledStop;
+
+    @NonNullByDefault({})
+    protected TranslationProvider i18nProvider;
+    @NonNullByDefault({})
+    protected LocaleProvider localeProvider;
 
     /**
      * Creates a new instance of this class with the specified parameters.
      *
-     * @param supportedThingTypes
-     *            the list of Thing types which are supported (can be null)
-     *
-     * @param timeout
-     *            the discovery timeout in seconds after which the discovery
-     *            service automatically stops its forced discovery process (>=
-     *            0).
-     *
-     * @param backgroundDiscoveryEnabledByDefault
-     *            defines, whether the default for this discovery service is to
+     * @param supportedThingTypes the list of Thing types which are supported (can be null)
+     * @param timeout the discovery timeout in seconds after which the discovery
+     *            service automatically stops its forced discovery process (>= 0).
+     * @param backgroundDiscoveryEnabledByDefault defines, whether the default for this discovery service is to
      *            enable background discovery or not.
-     *
-     * @throws IllegalArgumentException
-     *             if the timeout < 0
+     * @throws IllegalArgumentException if the timeout < 0
      */
-    public AbstractDiscoveryService(Set<ThingTypeUID> supportedThingTypes, int timeout,
+    public AbstractDiscoveryService(@Nullable Set<ThingTypeUID> supportedThingTypes, int timeout,
             boolean backgroundDiscoveryEnabledByDefault) throws IllegalArgumentException {
-
         if (supportedThingTypes == null) {
             this.supportedThingTypes = Collections.emptySet();
         } else {
@@ -99,13 +109,11 @@ public abstract class AbstractDiscoveryService implements DiscoveryService {
      * Creates a new instance of this class with the specified parameters.
      *
      * @param supportedThingTypes the list of Thing types which are supported (can be null)
-     *
      * @param timeout the discovery timeout in seconds after which the discovery service
      *            automatically stops its forced discovery process (>= 0).
-     *
      * @throws IllegalArgumentException if the timeout < 0
      */
-    public AbstractDiscoveryService(Set<ThingTypeUID> supportedThingTypes, int timeout)
+    public AbstractDiscoveryService(@Nullable Set<ThingTypeUID> supportedThingTypes, int timeout)
             throws IllegalArgumentException {
         this(supportedThingTypes, timeout, true);
     }
@@ -115,7 +123,6 @@ public abstract class AbstractDiscoveryService implements DiscoveryService {
      *
      * @param timeout the discovery timeout in seconds after which the discovery service
      *            automatically stops its forced discovery process (>= 0).
-     *
      * @throws IllegalArgumentException if the timeout < 0
      */
     public AbstractDiscoveryService(int timeout) throws IllegalArgumentException {
@@ -150,7 +157,10 @@ public abstract class AbstractDiscoveryService implements DiscoveryService {
     }
 
     @Override
-    public void addDiscoveryListener(DiscoveryListener listener) {
+    public void addDiscoveryListener(@Nullable DiscoveryListener listener) {
+        if (listener == null) {
+            return;
+        }
         synchronized (cachedResults) {
             for (DiscoveryResult cachedResult : cachedResults.values()) {
                 listener.thingDiscovered(this, cachedResult);
@@ -160,14 +170,13 @@ public abstract class AbstractDiscoveryService implements DiscoveryService {
     }
 
     @Override
-    public void removeDiscoveryListener(DiscoveryListener listener) {
+    public void removeDiscoveryListener(@Nullable DiscoveryListener listener) {
         discoveryListeners.remove(listener);
     }
 
     @Override
-    public synchronized void startScan(ScanListener listener) {
+    public synchronized void startScan(@Nullable ScanListener listener) {
         synchronized (this) {
-
             // we first stop any currently running scan and its scheduled stop
             // call
             stopScan();
@@ -215,10 +224,11 @@ public abstract class AbstractDiscoveryService implements DiscoveryService {
                 scheduledStop.cancel(false);
                 scheduledStop = null;
             }
+            final ScanListener scanListener = this.scanListener;
             if (scanListener != null) {
                 Exception e = new CancellationException("Scan has been aborted.");
                 scanListener.onErrorOccurred(e);
-                scanListener = null;
+                this.scanListener = null;
             }
         }
     }
@@ -229,7 +239,7 @@ public abstract class AbstractDiscoveryService implements DiscoveryService {
      * The abstract class schedules a call of {@link #stopScan()} after {@link #getScanTimeout()} seconds. If this
      * behavior is not appropriate, the {@link #startScan(ScanListener))} method should be overridden.
      */
-    abstract protected void startScan();
+    protected abstract void startScan();
 
     /**
      * This method cleans up after a scan, i.e. it removes listeners and other required operations.
@@ -244,16 +254,29 @@ public abstract class AbstractDiscoveryService implements DiscoveryService {
     /**
      * Notifies the registered {@link DiscoveryListener}s about a discovered device.
      *
-     * @param discoveryResult
-     *            Holds the information needed to identify the discovered device.
+     * @param discoveryResult Holds the information needed to identify the discovered device.
      */
     protected void thingDiscovered(DiscoveryResult discoveryResult) {
+        if (this.i18nProvider != null && this.localeProvider != null) {
+            Bundle bundle = FrameworkUtil.getBundle(this.getClass());
+
+            String defaultLabel = discoveryResult.getLabel();
+
+            String key = I18nUtil.isConstant(defaultLabel) ? I18nUtil.stripConstant(defaultLabel)
+                    : inferKey(discoveryResult, "label");
+
+            String label = this.i18nProvider.getText(bundle, key, defaultLabel, this.localeProvider.getLocale());
+
+            discoveryResult = new DiscoveryResultImpl(discoveryResult.getThingTypeUID(), discoveryResult.getThingUID(),
+                    discoveryResult.getBridgeUID(), discoveryResult.getProperties(),
+                    discoveryResult.getRepresentationProperty(), label, discoveryResult.getTimeToLive());
+        }
         for (DiscoveryListener discoveryListener : discoveryListeners) {
             try {
                 discoveryListener.thingDiscovered(this, discoveryResult);
             } catch (Exception e) {
-                logger.error("An error occurred while calling the discovery listener "
-                        + discoveryListener.getClass().getName() + ".", e);
+                logger.error("An error occurred while calling the discovery listener {}.",
+                        discoveryListener.getClass().getName(), e);
             }
         }
         synchronized (cachedResults) {
@@ -264,16 +287,15 @@ public abstract class AbstractDiscoveryService implements DiscoveryService {
     /**
      * Notifies the registered {@link DiscoveryListener}s about a removed device.
      *
-     * @param thingUID
-     *            The UID of the removed thing.
+     * @param thingUID The UID of the removed thing.
      */
     protected void thingRemoved(ThingUID thingUID) {
         for (DiscoveryListener discoveryListener : discoveryListeners) {
             try {
                 discoveryListener.thingRemoved(this, thingUID);
             } catch (Exception e) {
-                logger.error("An error occurred while calling the discovery listener "
-                        + discoveryListener.getClass().getName() + ".", e);
+                logger.error("An error occurred while calling the discovery listener {}.",
+                        discoveryListener.getClass().getName(), e);
             }
         }
         synchronized (cachedResults) {
@@ -287,11 +309,23 @@ public abstract class AbstractDiscoveryService implements DiscoveryService {
      * full scan, this method could be called {@link #getTimestampOfLastScan()}
      * as timestamp.
      *
-     * @param timestamp
-     *            timestamp, older results will be removed
+     * @param timestamp timestamp, older results will be removed
      */
     protected void removeOlderResults(long timestamp) {
-        removeOlderResults(timestamp, null);
+        removeOlderResults(timestamp, null, null);
+    }
+
+    /**
+     * Call to remove all results of all {@link #supportedThingTypes} that are
+     * older than the given timestamp. To remove all left over results after a
+     * full scan, this method could be called {@link #getTimestampOfLastScan()}
+     * as timestamp.
+     *
+     * @param timestamp timestamp, older results will be removed
+     * @param bridgeUID if not {@code null} only results of that bridge are being removed
+     */
+    protected void removeOlderResults(long timestamp, @Nullable ThingUID bridgeUID) {
+        removeOlderResults(timestamp, null, bridgeUID);
     }
 
     /**
@@ -299,25 +333,24 @@ public abstract class AbstractDiscoveryService implements DiscoveryService {
      * given timestamp. To remove all left over results after a full scan, this
      * method could be called {@link #getTimestampOfLastScan()} as timestamp.
      *
-     * @param timestamp
-     *            timestamp, older results will be removed
-     * @param thingTypeUIDs
-     *            collection of {@code ThingType}s, only results of these
+     * @param timestamp timestamp, older results will be removed
+     * @param thingTypeUIDs collection of {@code ThingType}s, only results of these
      *            {@code ThingType}s will be removed; if {@code null} then
      *            {@link DiscoveryService#getSupportedThingTypes()} will be used
      *            instead
+     * @param bridgeUID if not {@code null} only results of that bridge are being removed
      */
-    protected void removeOlderResults(long timestamp, Collection<ThingTypeUID> thingTypeUIDs) {
+    protected void removeOlderResults(long timestamp, @Nullable Collection<ThingTypeUID> thingTypeUIDs,
+            @Nullable ThingUID bridgeUID) {
         Collection<ThingUID> removedThings = null;
-        if (thingTypeUIDs == null) {
-            thingTypeUIDs = getSupportedThingTypes();
-        }
+
+        Collection<ThingTypeUID> toBeRemoved = thingTypeUIDs != null ? thingTypeUIDs : getSupportedThingTypes();
         for (DiscoveryListener discoveryListener : discoveryListeners) {
             try {
-                removedThings = discoveryListener.removeOlderResults(this, timestamp, thingTypeUIDs);
+                removedThings = discoveryListener.removeOlderResults(this, timestamp, toBeRemoved, bridgeUID);
             } catch (Exception e) {
-                logger.error("An error occurred while calling the discovery listener "
-                        + discoveryListener.getClass().getName() + ".", e);
+                logger.error("An error occurred while calling the discovery listener {}.",
+                        discoveryListener.getClass().getName(), e);
             }
         }
         if (removedThings != null) {
@@ -337,9 +370,9 @@ public abstract class AbstractDiscoveryService implements DiscoveryService {
      *
      * @param configProperties configuration properties
      */
-    protected void activate(Map<String, Object> configProperties) {
+    protected void activate(@Nullable Map<String, @Nullable Object> configProperties) {
         if (configProperties != null) {
-            Object property = configProperties.get(DiscoveryService.CONFIG_PROPERTY_BACKGROUND_DISCOVERY_ENABLED);
+            Object property = configProperties.get(DiscoveryService.CONFIG_PROPERTY_BACKGROUND_DISCOVERY);
             if (property != null) {
                 this.backgroundDiscoveryEnabled = getAutoDiscoveryEnabled(property);
             }
@@ -358,12 +391,11 @@ public abstract class AbstractDiscoveryService implements DiscoveryService {
      * enabled, the method {@link AbstractDiscoveryService#stopBackgroundDiscovery()} is called. In
      * all other cases, nothing happens.
      *
-     * @param configProperties
-     *            configuration properties
+     * @param configProperties configuration properties
      */
-    protected void modified(Map<String, Object> configProperties) {
+    protected void modified(@Nullable Map<String, @Nullable Object> configProperties) {
         if (configProperties != null) {
-            Object property = configProperties.get(DiscoveryService.CONFIG_PROPERTY_BACKGROUND_DISCOVERY_ENABLED);
+            Object property = configProperties.get(DiscoveryService.CONFIG_PROPERTY_BACKGROUND_DISCOVERY);
             if (property != null) {
                 boolean enabled = getAutoDiscoveryEnabled(property);
 
@@ -430,4 +462,9 @@ public abstract class AbstractDiscoveryService implements DiscoveryService {
             return false;
         }
     }
+
+    private String inferKey(DiscoveryResult discoveryResult, String lastSegment) {
+        return "discovery." + discoveryResult.getThingUID().getAsString().replaceAll(":", ".") + "." + lastSegment;
+    }
+
 }

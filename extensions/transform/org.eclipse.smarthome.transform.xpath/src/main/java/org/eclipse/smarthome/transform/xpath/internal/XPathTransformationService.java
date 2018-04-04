@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.transform.xpath.internal;
 
@@ -26,7 +31,6 @@ import org.xml.sax.InputSource;
 /**
  * <p>
  * The implementation of {@link TransformationService} which transforms the input by XPath Expressions.
- * </p>
  *
  * @author Thomas.Eichstaedt-Engelen
  */
@@ -34,12 +38,8 @@ public class XPathTransformationService implements TransformationService {
 
     private final Logger logger = LoggerFactory.getLogger(XPathTransformationService.class);
 
-    /**
-     * @{inheritDoc
-     */
     @Override
     public String transform(String xpathExpression, String source) throws TransformationException {
-
         if (xpathExpression == null || source == null) {
             throw new TransformationException("the given parameters 'xpath' and 'source' must not be null");
         }
@@ -75,7 +75,6 @@ public class XPathTransformationService implements TransformationService {
                 stringReader.close();
             }
         }
-
     }
 
 }

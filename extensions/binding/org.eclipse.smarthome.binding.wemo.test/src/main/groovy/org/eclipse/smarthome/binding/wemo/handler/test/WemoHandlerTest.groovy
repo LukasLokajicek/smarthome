@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.wemo.handler.test;
 
@@ -13,18 +18,15 @@ import static org.junit.Assert.*
 
 import org.eclipse.smarthome.binding.wemo.WemoBindingConstants
 import org.eclipse.smarthome.binding.wemo.handler.WemoHandler
-import org.eclipse.smarthome.core.library.types.DateTimeType
 import org.eclipse.smarthome.core.library.types.DecimalType
 import org.eclipse.smarthome.core.library.types.OnOffType
 import org.eclipse.smarthome.core.thing.Thing
 import org.eclipse.smarthome.core.thing.ThingStatus
 import org.eclipse.smarthome.core.thing.ThingStatusDetail;
-import org.eclipse.smarthome.core.thing.ThingTypeUID
 import org.eclipse.smarthome.core.thing.ThingUID
 import org.eclipse.smarthome.core.types.State
 import org.junit.After
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Test
 
 /**
@@ -130,7 +132,7 @@ public class WemoHandlerTest {
 
         handler.onValueReceived(PARAMS_NAME, insightParams, SERVICE_ID);
         assertThat handler.channelState, is(notNullValue())
-        assertThat "Incorrect channel state for channel {$expectedChannel} on received value {$insightParams}.", handler.channelState, is(expectedState)
+        assertThat handler.channelState, is(expectedState)
     }
 
     class MockWemoHandler extends WemoHandler {
@@ -159,7 +161,6 @@ public class WemoHandlerTest {
 
         @Override
         protected void updateStatus(ThingStatus status) {
-            
         }
     }
 

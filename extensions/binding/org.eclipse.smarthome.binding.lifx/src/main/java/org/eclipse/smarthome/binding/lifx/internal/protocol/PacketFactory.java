@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.lifx.internal.protocol;
 
@@ -24,7 +29,7 @@ public class PacketFactory {
 
     private static PacketFactory instance;
 
-    public synchronized static PacketFactory getInstance() {
+    public static synchronized  PacketFactory getInstance() {
         if (instance == null) {
             instance = new PacketFactory();
         }
@@ -39,6 +44,7 @@ public class PacketFactory {
 
         register(AcknowledgementResponse.class);
         register(EchoRequestResponse.class);
+        register(GetColorZonesRequest.class);
         register(GetEchoRequest.class);
         register(GetGroupRequest.class);
         register(GetHostFirmwareRequest.class);
@@ -48,17 +54,16 @@ public class PacketFactory {
         register(GetLightInfraredRequest.class);
         register(GetLightPowerRequest.class);
         register(GetLocationRequest.class);
-        register(GetMeshFirmwareRequest.class);
         register(GetPowerRequest.class);
         register(GetRequest.class);
         register(GetServiceRequest.class);
         register(GetTagLabelsRequest.class);
         register(GetTagsRequest.class);
-        register(GetTagsRequest.class);
         register(GetVersionRequest.class);
         register(GetWifiFirmwareRequest.class);
         register(GetWifiInfoRequest.class);
         register(SetColorRequest.class);
+        register(SetColorZonesRequest.class);
         register(SetDimAbsoluteRequest.class);
         register(SetLabelRequest.class);
         register(SetLightInfraredRequest.class);
@@ -73,13 +78,14 @@ public class PacketFactory {
         register(StateLightInfraredResponse.class);
         register(StateLightPowerResponse.class);
         register(StateLocationResponse.class);
-        register(StateMeshFirmwareResponse.class);
+        register(StateMultiZoneResponse.class);
         register(StatePowerResponse.class);
         register(StateResponse.class);
         register(StateServiceResponse.class);
         register(StateVersionResponse.class);
         register(StateWifiFirmwareResponse.class);
         register(StateWifiInfoResponse.class);
+        register(StateZoneResponse.class);
         register(TagLabelsResponse.class);
         register(TagsResponse.class);
     }

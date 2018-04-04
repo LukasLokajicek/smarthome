@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.transform.map.internal;
 
@@ -20,7 +25,6 @@ import org.slf4j.LoggerFactory;
 /**
  * <p>
  * The implementation of {@link TransformationService} which simply maps strings to other strings
- * </p>
  *
  * @author Kai Kreuzer - Initial contribution and API
  * @author Gaël L'hopital - Make it localizable
@@ -34,15 +38,11 @@ public class MapTransformationService extends AbstractFileTransformationService<
      * Transforms the input <code>source</code> by mapping it to another string. It expects the mappings to be read from
      * a file which is stored under the 'configurations/transform' folder. This file should be in property syntax, i.e.
      * simple lines with "key=value" pairs. To organize the various transformations one might use subfolders.
-     * </p>
      *
      * @param properties
      *            the list of properties which contains the key value pairs for the mapping.
      * @param source
      *            the input to transform
-     *
-     * @{inheritDoc
-     *
      */
     @Override
     protected String internalTransform(Properties properties, String source) throws TransformationException {
@@ -63,7 +63,7 @@ public class MapTransformationService extends AbstractFileTransformationService<
             result.load(reader);
             return result;
         } catch (IOException e) {
-            throw new TransformationException("An error occured while opening file.", e);
+            throw new TransformationException("An error occurred while opening file.", e);
         }
     }
 

@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.type;
 
@@ -95,7 +100,7 @@ public class Input {
      * @param description user friendly description of the {@code Input}.
      * @param tags are associated with the {@code Input}. The tags adds additional restrictions to connections between
      *            {@code Input}s and {@link Output}s. The input tags must be subset of the output tags to succeed the
-     *            connection.</br>
+     *            connection.
      *            For example: When we want to connect input to output and both have same
      *            java.lang.double data type. The the output has assign "temperature" and "celsius" tags then the input
      *            must have at least one of these output's tags (i.e. "temperature") to connect this {@code Input} to
@@ -176,7 +181,7 @@ public class Input {
     /**
      * This method is used for getting the tags of the Input. The tags add additional restrictions to connections
      * between {@link Input}s and {@link Output}s. The input tags must be subset of the output tags to succeed the
-     * connection.</br>
+     * connection.
      * For example: When we want to connect input to output and they both have same java.lang.double
      * data type, and the output has assign "temperature" and "celsius" tags then the input must have at least one of
      * these output's tags (i.e. "temperature") to connect this input to the selected output.

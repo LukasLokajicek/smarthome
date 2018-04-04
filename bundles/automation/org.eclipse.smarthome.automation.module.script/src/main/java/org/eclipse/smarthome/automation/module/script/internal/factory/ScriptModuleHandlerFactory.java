@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.module.script.internal.factory;
 
@@ -15,6 +20,7 @@ import org.eclipse.smarthome.automation.Condition;
 import org.eclipse.smarthome.automation.Module;
 import org.eclipse.smarthome.automation.handler.BaseModuleHandlerFactory;
 import org.eclipse.smarthome.automation.handler.ModuleHandler;
+import org.eclipse.smarthome.automation.module.script.ScriptEngineManager;
 import org.eclipse.smarthome.automation.module.script.internal.handler.ScriptActionHandler;
 import org.eclipse.smarthome.automation.module.script.internal.handler.ScriptConditionHandler;
 import org.osgi.framework.BundleContext;
@@ -31,7 +37,9 @@ public class ScriptModuleHandlerFactory extends BaseModuleHandlerFactory {
 
     private Logger logger = LoggerFactory.getLogger(ScriptModuleHandlerFactory.class);
 
-    private static final Collection<String> types = Arrays
+    private ScriptEngineManager scriptEngineManager;
+
+    private static final Collection<String> TYPES = Arrays
             .asList(new String[] { ScriptActionHandler.SCRIPT_ACTION_ID, ScriptConditionHandler.SCRIPT_CONDITION });
 
     @Override
@@ -41,7 +49,15 @@ public class ScriptModuleHandlerFactory extends BaseModuleHandlerFactory {
 
     @Override
     public Collection<String> getTypes() {
-        return types;
+        return TYPES;
+    }
+
+    public void setScriptEngineManager(ScriptEngineManager scriptEngineManager) {
+        this.scriptEngineManager = scriptEngineManager;
+    }
+
+    public void unsetScriptEngineManager(ScriptEngineManager scriptEngineManager) {
+        this.scriptEngineManager = null;
     }
 
     @Override
@@ -50,15 +66,15 @@ public class ScriptModuleHandlerFactory extends BaseModuleHandlerFactory {
         String moduleTypeUID = module.getTypeUID();
         if (moduleTypeUID != null) {
             if (ScriptConditionHandler.SCRIPT_CONDITION.equals(moduleTypeUID) && module instanceof Condition) {
-                ScriptConditionHandler handler = new ScriptConditionHandler((Condition) module);
+                ScriptConditionHandler handler = new ScriptConditionHandler((Condition) module, ruleUID,
+                        scriptEngineManager);
                 return handler;
             } else if (ScriptActionHandler.SCRIPT_ACTION_ID.equals(moduleTypeUID) && module instanceof Action) {
-                ScriptActionHandler handler = new ScriptActionHandler((Action) module, ruleUID);
+                ScriptActionHandler handler = new ScriptActionHandler((Action) module, ruleUID, scriptEngineManager);
                 return handler;
             } else {
                 logger.error("The ModuleHandler is not supported: {}", moduleTypeUID);
             }
-
         } else {
             logger.error("ModuleType is not registered: {}", moduleTypeUID);
         }

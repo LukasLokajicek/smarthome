@@ -1,12 +1,18 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.model.thing.internal
 
+import java.math.BigDecimal
 import java.util.ArrayList
 import java.util.Collection
 import java.util.HashSet
@@ -15,11 +21,15 @@ import java.util.Map
 import java.util.Set
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
-import org.eclipse.smarthome.config.core.BundleProcessor
-import org.eclipse.smarthome.config.core.BundleProcessorVetoManager
+import java.util.concurrent.CopyOnWriteArraySet
+import org.eclipse.smarthome.config.core.ConfigDescriptionParameter.Type
+import org.eclipse.smarthome.config.core.ConfigDescriptionRegistry
 import org.eclipse.smarthome.config.core.Configuration
 import org.eclipse.smarthome.core.common.registry.AbstractProvider
 import org.eclipse.smarthome.core.i18n.LocaleProvider
+import org.eclipse.smarthome.core.service.ReadyMarker
+import org.eclipse.smarthome.core.service.ReadyMarkerFilter
+import org.eclipse.smarthome.core.service.ReadyService
 import org.eclipse.smarthome.core.thing.Bridge
 import org.eclipse.smarthome.core.thing.Channel
 import org.eclipse.smarthome.core.thing.ChannelUID
@@ -33,9 +43,10 @@ import org.eclipse.smarthome.core.thing.binding.builder.ChannelBuilder
 import org.eclipse.smarthome.core.thing.binding.builder.ThingBuilder
 import org.eclipse.smarthome.core.thing.type.ChannelDefinition
 import org.eclipse.smarthome.core.thing.type.ChannelKind
+import org.eclipse.smarthome.core.thing.type.ChannelType
+import org.eclipse.smarthome.core.thing.type.ChannelTypeRegistry
 import org.eclipse.smarthome.core.thing.type.ChannelTypeUID
 import org.eclipse.smarthome.core.thing.type.ThingTypeRegistry
-import org.eclipse.smarthome.core.thing.type.TypeResolver
 import org.eclipse.smarthome.core.thing.util.ThingHelper
 import org.eclipse.smarthome.model.core.ModelRepository
 import org.eclipse.smarthome.model.core.ModelRepositoryChangeListener
@@ -45,12 +56,11 @@ import org.eclipse.smarthome.model.thing.thing.ModelPropertyContainer
 import org.eclipse.smarthome.model.thing.thing.ModelThing
 import org.eclipse.smarthome.model.thing.thing.ThingModel
 import org.eclipse.xtend.lib.annotations.Data
+import org.osgi.framework.FrameworkUtil
+import org.osgi.service.component.annotations.Component
+import org.osgi.service.component.annotations.Reference
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import org.eclipse.smarthome.config.core.ConfigDescriptionRegistry
-import org.eclipse.smarthome.core.thing.type.ChannelType
-import java.math.BigDecimal
-import org.eclipse.smarthome.config.core.ConfigDescriptionParameter.Type
 
 /**
  * {@link ThingProvider} implementation which computes *.things files.
@@ -65,13 +75,17 @@ import org.eclipse.smarthome.config.core.ConfigDescriptionParameter.Type
  * @author Markus Rathgeb - Add locale provider support
  * 
  */
-class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvider, ModelRepositoryChangeListener {
+ @Component(immediate=true, service=ThingProvider)
+class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvider, ModelRepositoryChangeListener, ReadyService.ReadyTracker {
+
+    private static final String XML_THING_TYPE = "esh.xmlThingTypes";
 
     private LocaleProvider localeProvider
 
     private ModelRepository modelRepository
 
     private ThingTypeRegistry thingTypeRegistry
+    private ChannelTypeRegistry channelTypeRegistry
 
     private Map<String, Collection<Thing>> thingsMap = new ConcurrentHashMap
 
@@ -82,16 +96,9 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
     private val List<QueueContent> queue = new CopyOnWriteArrayList
     private var Thread lazyRetryThread = null
     
-    private val BundleProcessorVetoManager<ThingHandlerFactory> vetoManager = new BundleProcessorVetoManager(new BundleProcessorVetoManager.Action<ThingHandlerFactory>() {
-        override apply(ThingHandlerFactory thingHandlerFactory) {
-            thingsMap.keySet.forEach [
-                // create things for this specific thingHandlerFactory from the model.
-                createThingsFromModelForThingHandlerFactory(it, thingHandlerFactory)
-            ]
-        }
-    })
-    
     private static final Logger logger = LoggerFactory.getLogger(GenericThingProvider)
+
+    private val Set<String> loadedXmlThingTypes = new CopyOnWriteArraySet
 
     def void activate() {
         modelRepository.getAllModelNamesOfType("things").forEach [
@@ -105,15 +112,15 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
 
     def private void createThingsFromModel(String modelName) {
         logger.debug("Read things from model '{}'", modelName);
-        if (thingsMap.get(modelName) == null) {
+        if (thingsMap.get(modelName) === null) {
             thingsMap.put(modelName, newArrayList)
         }
-        if (modelRepository != null) {
+        if (modelRepository !== null) {
             val model = modelRepository.getModel(modelName) as ThingModel
             model?.things?.map[
                 // Get the ThingHandlerFactories
                 val ThingUID thingUID = constructThingUID
-                if (thingUID != null) {
+                if (thingUID !== null) {
                     val thingTypeUID = constructThingTypeUID(thingUID)
                     return thingHandlerFactories.findFirst[
                         supportsThingType(thingTypeUID)
@@ -124,19 +131,19 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
                 }
             ]?.filter[
                 // Drop it if there is no ThingHandlerFactory yet which can handle it 
-                it != null
+                it !== null
             ]?.toSet?.forEach[
                 // Execute for each unique ThingHandlerFactory
-                vetoManager.applyActionFor(it)
+                createThingsFromModelForThingHandlerFactory(modelName, it)
             ]
         }
     }
     
     def private ThingUID constructThingUID(ModelThing modelThing) {
-        if (modelThing.id != null) {
+        if (modelThing.id !== null) {
             return new ThingUID(modelThing.id)
         } else {
-            if (modelThing.bridgeUID != null) {
+            if (modelThing.bridgeUID !== null) {
                 val bindingId = new ThingUID(modelThing.bridgeUID).bindingId
                 return new ThingUID(bindingId, modelThing.thingTypeId, modelThing.thingId)
             } else {
@@ -147,7 +154,7 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
     }
     
     def private ThingTypeUID constructThingTypeUID(ModelThing modelThing, ThingUID thingUID) {
-        if (modelThing.thingTypeId != null) {
+        if (modelThing.thingTypeId !== null) {
             return new ThingTypeUID(thingUID.bindingId, modelThing.thingTypeId)
         } else {
             return new ThingTypeUID(thingUID.bindingId, thingUID.thingTypeId)
@@ -157,16 +164,16 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
     def private void createThing(ModelThing modelThing, Bridge parentBridge, Collection<Thing> thingList,
         ThingHandlerFactory thingHandlerFactory) {
         val ThingUID thingUID = getThingUID(modelThing, parentBridge?.UID)
-        if (thingUID == null) {
+        if (thingUID === null) {
             // ignore the Thing because its definition is broken
             return
         }
         val thingTypeUID = modelThing.constructThingTypeUID(thingUID)
         var ThingUID bridgeUID = null
-        if (parentBridge != null) {
+        if (parentBridge !== null) {
             bridgeUID = parentBridge.UID
         } else {
-            if (modelThing.bridgeUID != null && !modelThing.bridgeUID.empty) {
+            if (modelThing.bridgeUID !== null && !modelThing.bridgeUID.empty) {
                 bridgeUID = new ThingUID(modelThing.bridgeUID)
             }
         }
@@ -187,7 +194,7 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
 
         val thingType = thingTypeUID.thingType
 
-        val label = if (modelThing.label != null) modelThing.label else thingType?.label
+        val label = if (modelThing.label !== null) modelThing.label else thingType?.label
         
         val location = modelThing.location
 
@@ -212,7 +219,7 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
         var thing = thingBuilder.build
 
         // ask the ThingHandlerFactories for a thing
-        if (thingFromHandler != null) {
+        if (thingFromHandler !== null) {
 
             // If a thingHandlerFactory could create a thing, merge the content of the modelThing to it
             thingFromHandler.merge(thing)
@@ -242,7 +249,7 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
 
     def private Thing getThingFromThingHandlerFactories(ThingTypeUID thingTypeUID, String label,
         Configuration configuration, ThingUID thingUID, ThingUID bridgeUID, ThingHandlerFactory specific) {
-        if (specific != null && specific.supportsThingType(thingTypeUID)) {
+        if (specific !== null && specific.supportsThingType(thingTypeUID)) {
             logger.trace("Creating thing from specific ThingHandlerFactory {} for thingType {}", specific, thingTypeUID)
             return getThingFromThingHandlerFactory(thingTypeUID, label, configuration, thingUID, bridgeUID, specific)
         }
@@ -259,7 +266,7 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
     def private getThingFromThingHandlerFactory(ThingTypeUID thingTypeUID, String label, Configuration configuration,
         ThingUID thingUID, ThingUID bridgeUID, ThingHandlerFactory thingHandlerFactory) {
         val thing = thingHandlerFactory.createThing(thingTypeUID, configuration, thingUID, bridgeUID)
-        if (thing == null) {
+        if (thing === null) {
             // Apparently the HandlerFactory's eyes were bigger than its stomach...
             // Possible cause: Asynchronous loading of the XML files
             // Add the data to the queue in order to retry it later
@@ -267,7 +274,7 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
                 "ThingHandlerFactory '{}' claimed it can handle '{}' type but actually did not. Queued for later refresh.",
                 thingHandlerFactory.class.simpleName, thingTypeUID.asString)
             queue.add(new QueueContent(thingTypeUID, label, configuration, thingUID, bridgeUID, thingHandlerFactory))
-            if (lazyRetryThread == null || !lazyRetryThread.alive) {
+            if (lazyRetryThread === null || !lazyRetryThread.alive) {
                 lazyRetryThread = new Thread(lazyRetryRunnable)
                 lazyRetryThread.start
             }
@@ -329,13 +336,13 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
                 var String itemType
                 var label = it.label
                 val configuration = createConfiguration
-                if (it.channelType != null) {
+                if (it.channelType !== null) {
                     channelTypeUID = new ChannelTypeUID(thingUID.bindingId, it.channelType)
-                    val resolvedChannelType = TypeResolver.resolve(channelTypeUID)
-                    if (resolvedChannelType != null) {
+                    val resolvedChannelType = channelTypeUID.channelType
+                    if (resolvedChannelType !== null) {
                         itemType = resolvedChannelType.itemType
                         parsedKind = resolvedChannelType.kind
-                        if (label == null) {
+                        if (label === null) {
                             label = resolvedChannelType.label
                         }
                         applyDefaultConfiguration(configuration, resolvedChannelType)
@@ -345,7 +352,7 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
                 } else {
                     itemType = it.type
                     
-                    val kind = if (it.channelKind == null) "State" else it.channelKind                 
+                    val kind = if (it.channelKind === null) "State" else it.channelKind                 
                     parsedKind = ChannelKind.parse(kind)
                 }
                 
@@ -359,8 +366,8 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
         ]
         channelDefinitions.forEach [
             if (addedChannelIds.add(id)) {
-                val channelType = TypeResolver.resolve(it.channelTypeUID)
-                if (channelType != null) {
+                val channelType = it.channelTypeUID.channelType
+                if (channelType !== null) {
                     channels +=
                         ChannelBuilder.create(new ChannelUID(thingTypeUID, thingUID, id), channelType.itemType).
                             withType(it.channelTypeUID).build
@@ -375,15 +382,15 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
     }
     
     def private applyDefaultConfiguration(Configuration configuration, ChannelType channelType) {
-        if (configDescriptionRegistry != null && configuration != null) {
-            if (channelType.configDescriptionURI != null) {
+        if (configDescriptionRegistry !== null && configuration !== null) {
+            if (channelType.configDescriptionURI !== null) {
                 val configDescription = configDescriptionRegistry.getConfigDescription(channelType.configDescriptionURI)
-                if (configDescription != null) {
+                if (configDescription !== null) {
                     configDescription.parameters.filter[
-                        ^default != null && configuration.get(name) == null
+                        ^default !== null && configuration.get(name) === null
                     ].forEach[
                         val value = getDefaultValueAsCorrectType(type, ^default)
-                        if (value != null) {
+                        if (value !== null) {
                             configuration.put(name, value);
                         }
                     ]
@@ -425,6 +432,11 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
         thingTypeRegistry?.getThingType(thingTypeUID, localeProvider.getLocale())
     }
 
+    def private getChannelType(ChannelTypeUID channelTypeUID) {
+        channelTypeRegistry?.getChannelType(channelTypeUID, localeProvider.getLocale())
+    }
+
+    @Reference
     def protected void setModelRepository(ModelRepository modelRepository) {
         this.modelRepository = modelRepository
         modelRepository.addModelRepositoryChangeListener(this)
@@ -444,13 +456,14 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
                 case org.eclipse.smarthome.model.core.EventType.MODIFIED: {
                     val oldThings = thingsMap.get(modelName) ?: newArrayList
                     val model = modelRepository.getModel(modelName) as ThingModel
-                    val newThingUIDs = model.allThingUIDs
-                    val removedThings = oldThings.filter[!newThingUIDs.contains(it.UID)]
-                    removedThings.forEach [
-                        notifyListenersAboutRemovedElement
-                    ]
-
-                    createThingsFromModel(modelName)
+                    if (model !== null) {
+                        val newThingUIDs = model.allThingUIDs
+                        val removedThings = oldThings.filter[!newThingUIDs.contains(it.UID)]
+                        removedThings.forEach [
+                            notifyListenersAboutRemovedElement
+                        ]
+                        createThingsFromModel(modelName)
+                    }
                 }
                 case org.eclipse.smarthome.model.core.EventType.REMOVED: {
                     val things = thingsMap.remove(modelName) ?: newArrayList
@@ -479,7 +492,7 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
     }    
     
     def private ThingUID getThingUID(ModelThing modelThing, ThingUID parentUID) {
-        if (parentUID != null && modelThing.id == null) {
+        if (parentUID !== null && modelThing.id === null) {
             val thingTypeUID = new ThingTypeUID(parentUID.bindingId, modelThing.thingTypeId)
             return new ThingUID(thingTypeUID, modelThing.thingId, parentUID.parentPath)
         } else {
@@ -487,6 +500,7 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
         }
     }
 
+    @Reference
     def protected void setLocaleProvider(LocaleProvider localeProvider) {
         this.localeProvider = localeProvider
     }
@@ -495,6 +509,7 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
         this.localeProvider = null
     }
 
+    @Reference(cardinality=OPTIONAL, policy=DYNAMIC)
     def protected void setThingTypeRegistry(ThingTypeRegistry thingTypeRegistry) {
         this.thingTypeRegistry = thingTypeRegistry
     }
@@ -503,14 +518,24 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
         this.thingTypeRegistry = null
     }
 
+    @Reference
+    def protected void setChannelTypeRegistry(ChannelTypeRegistry channelTypeRegistry) {
+        this.channelTypeRegistry = channelTypeRegistry
+    }
+
+    def protected void unsetChannelTypeRegistry(ChannelTypeRegistry channelTypeRegistry) {
+        this.channelTypeRegistry = null
+    }
+
+    @Reference(cardinality=MULTIPLE, policy=DYNAMIC)
     def protected void addThingHandlerFactory(ThingHandlerFactory thingHandlerFactory) {
         logger.debug("ThingHandlerFactory added {}", thingHandlerFactory)
-        this.thingHandlerFactories.add(thingHandlerFactory);
+        thingHandlerFactories.add(thingHandlerFactory);
         thingHandlerFactoryAdded(thingHandlerFactory)
     }
 
     def protected void removeThingHandlerFactory(ThingHandlerFactory thingHandlerFactory) {
-        this.thingHandlerFactories.remove(thingHandlerFactory);
+        thingHandlerFactories.remove(thingHandlerFactory);
         thingHandlerFactoryRemoved()
     }
 
@@ -518,16 +543,54 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
         // Don't do anything, Things should not be deleted
     }
 
-    def private thingHandlerFactoryAdded(ThingHandlerFactory thingHandlerFactory) {
-        vetoManager.applyActionFor(thingHandlerFactory)
+    def thingHandlerFactoryAdded(ThingHandlerFactory thingHandlerFactory) {
+        thingsMap.keySet.forEach [
+            //create things for this specific thingHandlerFactory from the model.
+            createThingsFromModelForThingHandlerFactory(it, thingHandlerFactory)
+        ]
+    }
+    
+    @Reference
+    def void setReadyService(ReadyService readyService) {
+        readyService.registerTracker(this, new ReadyMarkerFilter().withType(XML_THING_TYPE));
+    }
+
+    def void unsetReadyService(ReadyService readyService) {
+        readyService.unregisterTracker(this);
+    }
+
+    override onReadyMarkerAdded(ReadyMarker readyMarker) {
+        val bsn = readyMarker.identifier
+        loadedXmlThingTypes.add(bsn)
+        bsn.handleXmlThingTypesLoaded
+    }
+    
+    def private getBundleName(ThingHandlerFactory thingHandlerFactory) {
+        FrameworkUtil.getBundle(thingHandlerFactory.class).symbolicName
+    }
+    
+    def private handleXmlThingTypesLoaded(String bsn) {
+        thingHandlerFactories.filter[
+            getBundleName.equals(bsn)
+        ].forEach[ thingHandlerFactory |
+            thingHandlerFactory.thingHandlerFactoryAdded
+        ]
+    }
+
+    override onReadyMarkerRemoved(ReadyMarker readyMarker) {
+        val bsn = readyMarker.identifier
+        loadedXmlThingTypes.remove(bsn);
     }
 
     def private createThingsFromModelForThingHandlerFactory(String modelName, ThingHandlerFactory factory) {
+        if (!loadedXmlThingTypes.contains(factory.bundleName)) {
+            return
+        }
         val oldThings = thingsMap.get(modelName).clone
         val newThings = newArrayList()
-        if (modelRepository != null) {
+        if (modelRepository !== null) {
             val model = modelRepository.getModel(modelName) as ThingModel
-            if (model != null) {
+            if (model !== null) {
                 model.things.forEach [
                     createThing(null, newThings, factory)
                 ]
@@ -535,9 +598,11 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
         }
         newThings.forEach [ newThing |
             val oldThing = oldThings.findFirst[it.UID == newThing.UID]
-            if (oldThing != null) {
-                logger.debug("Updating thing '{}' from model '{}'.", newThing.UID, modelName);
-                notifyListenersAboutUpdatedElement(oldThing, newThing)
+            if (oldThing !== null) {
+                if (!ThingHelper.equals(oldThing, newThing)) {
+                    logger.debug("Updating thing '{}' from model '{}'.", newThing.UID, modelName);
+                    notifyListenersAboutUpdatedElement(oldThing, newThing)
+                }
             } else {
                 logger.debug("Adding thing '{}' from model '{}'.", newThing.UID, modelName);
                 thingsMap.get(modelName).add(newThing)
@@ -556,7 +621,7 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
                         logger.trace("Searching thingHandlerFactory for thingType: {}", qc.thingTypeUID)
                         val thing = qc.thingHandlerFactory.createThing(qc.thingTypeUID, qc.configuration, qc.thingUID,
                             qc.bridgeUID)
-                        if (thing != null) {
+                        if (thing !== null) {
                             queue.remove(qc)
                             logger.debug("Successfully loaded '{}' during retry", qc.thingUID)
                             newThings.add(thing)
@@ -568,7 +633,7 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
                                 !thingsMap.get(mName).filter[it.UID == newThing.UID].empty
                             ]
                             val oldThing = thingsMap.get(modelName).findFirst[it.UID == newThing.UID]
-                            if (oldThing != null) {
+                            if (oldThing !== null) {
                                 newThing.merge(oldThing)
                                 thingsMap.get(modelName).remove(oldThing)
                                 thingsMap.get(modelName).add(newThing)
@@ -600,14 +665,7 @@ class GenericThingProvider extends AbstractProvider<Thing> implements ThingProvi
         ThingHandlerFactory thingHandlerFactory
     }
 
-    def protected void addBundleProcessor(BundleProcessor bundleProcessor) {
-        vetoManager.addBundleProcessor(bundleProcessor)
-    }
-
-    def protected void removeBundleProcessor(BundleProcessor bundleProcessor) {
-        vetoManager.removeBundleProcessor(bundleProcessor)
-    }
-    
+    @Reference
     def protected void setConfigDescriptionRegistry(ConfigDescriptionRegistry configDescriptionRegistry) {
         this.configDescriptionRegistry = configDescriptionRegistry
     }
