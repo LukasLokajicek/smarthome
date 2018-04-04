@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<thing:thing-descriptions bindingId="forcomfort" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:thing="http://eclipse.org/smarthome/schemas/thing-description/v1.0.0"
+	xsi:schemaLocation="http://eclipse.org/smarthome/schemas/thing-description/v1.0.0 http://eclipse.org/smarthome/schemas/thing-description-1.0.0.xsd">
+
+	<!-- Generic thing for dimmable lights -->
+	<thing-type id="DimmableLight">
+		<supported-bridge-type-refs>
+			<bridge-type-ref id="bridge" />
+		</supported-bridge-type-refs>
+
+		<label>Dimmable Light</label>
+		<description>A dimmable light.</description>
+
+		<channels>
+			<channel id="brightness" typeId="brightness" />
+		</channels>
+
+		<config-description>
+			<parameter name="moduleAddress" type="integer">
+				<label>PWM Module Address [hex]</label>
+				<description>Determine the pwm module which contains the binding Light.</description>
+				<required>true</required>
+			</parameter>
+			<parameter name="elementPosition" type="integer">
+				<label>Element Position</label>
+				<description>Determine the position of the light.</description>
+				<required>true</required>
+			</parameter>
+		</config-description>
+	</thing-type>
+
+	<channel-type id="brightness">
+		<item-type>Dimmer</item-type>
+		<label>Brightness</label>
+		<description>The brightness channel allows to control the brightness of a light.
+			It is also possible to switch the light on and off.
+		</description>
+		<category>DimmableLight</category>
+		<tags>
+			<tag>Lighting</tag>
+		</tags>
+	</channel-type>
+
+</thing:thing-descriptions>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<thing:thing-descriptions bindingId="forcomfort"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:thing="http://eclipse.org/smarthome/schemas/thing-description/v1.0.0"
+        xsi:schemaLocation="http://eclipse.org/smarthome/schemas/thing-description/v1.0.0 http://eclipse.org/smarthome/schemas/thing-description-1.0.0.xsd">
+
+	<!-- Generic thing for JSON TCP input -->
+	<thing-type id="JsonInput">
+		<supported-bridge-type-refs>
+			<bridge-type-ref id="bridge" />
+		</supported-bridge-type-refs>
+
+		<label>JSON TCP Input</label>
+		<description>Provides raw entry point into TCP server.</description>
+
+		<channels>
+			<channel id="text" typeId="text" />
+		</channels>
+	</thing-type>
+	
+	<!-- Text Channel -->
+    <channel-type id="text">
+        <item-type>String</item-type>
+        <label>Text</label>
+        <description>Through text channel is possible to send JSON messages.
+        </description>
+        <category>Text</category>
+        <tags>
+            <tag>Text</tag>
+        </tags>
+    </channel-type>
+	
+</thing:thing-descriptions>

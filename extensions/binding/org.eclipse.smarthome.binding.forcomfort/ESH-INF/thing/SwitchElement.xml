@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<thing:thing-descriptions bindingId="forcomfort"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:thing="http://eclipse.org/smarthome/schemas/thing-description/v1.0.0"
+        xsi:schemaLocation="http://eclipse.org/smarthome/schemas/thing-description/v1.0.0 http://eclipse.org/smarthome/schemas/thing-description-1.0.0.xsd">
+
+	<!-- Generic thing for OnOff Fan -->
+	<thing-type id="SwitchElement">
+		<supported-bridge-type-refs>
+			<bridge-type-ref id="bridge" />
+		</supported-bridge-type-refs>
+
+		<label>On/Off Fan</label>
+		<description>A fan that could be switched on and off.</description>
+
+		<channels>
+			<channel id="switch" typeId="switch" />
+		</channels>
+
+		<config-description>
+            <parameter name="moduleAddress" type="integer">
+                <label>Relay Module Address [hex]</label>
+                <description>Determine the relay module which contains the binding Switch.</description>
+                <required>true</required>
+            </parameter>
+            <parameter name="elementPosition" type="integer">
+                <label>Element Position</label>
+                <description>Determine the position of the Switch.</description>
+                <required>true</required>
+            </parameter>
+        </config-description>
+	</thing-type>
+	
+	<!-- Switch Channel -->
+    <channel-type id="switch">
+        <item-type>Switch</item-type>
+        <label>Switch</label>
+        <description>The switch channel allows to switch the fan on and off.
+        </description>
+        <category>Switch</category>
+        <tags>
+            <tag>Switching</tag>
+        </tags>
+    </channel-type>
+	
+</thing:thing-descriptions>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<thing:thing-descriptions bindingId="forcomfort"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:thing="http://eclipse.org/smarthome/schemas/thing-description/v1.0.0"
+        xsi:schemaLocation="http://eclipse.org/smarthome/schemas/thing-description/v1.0.0 http://eclipse.org/smarthome/schemas/thing-description-1.0.0.xsd">
+
+     <!-- 4com4t Bridge -->
+    <bridge-type id="bridge">
+        <label>4com4t Bridge</label>
+        <description>The 4com4t bridge provides connection to 4com4t Smart Home System.</description>
+
+        <config-description>
+            <parameter name="ipAddress" type="text">
+                <context>network_address</context>
+                <label>Network Address</label>
+                <description>Network address of the 4com4t bridge.</description>
+                <default>localhost</default>
+                <required>true</required>
+            </parameter>
+            
+           <parameter name="port" type="integer">
+                <label>Port</label>
+                <description>The port on which the 4com4t bridge can be accessed.</description>
+                <default>10008</default>
+            </parameter>
+        </config-description>
+    </bridge-type>
+
+
+</thing:thing-descriptions>

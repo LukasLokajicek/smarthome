@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<thing:thing-descriptions bindingId="forcomfort" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:thing="http://eclipse.org/smarthome/schemas/thing-description/v1.0.0"
+	xsi:schemaLocation="http://eclipse.org/smarthome/schemas/thing-description/v1.0.0 http://eclipse.org/smarthome/schemas/thing-description-1.0.0.xsd">
+
+	<!-- Generic thing for color lights (ZigBee Device ID: 0x0200) -->
+	<thing-type id="RGBlightElement">
+		<supported-bridge-type-refs>
+			<bridge-type-ref id="bridge" />
+		</supported-bridge-type-refs>
+
+		<label>Color Light</label>
+		<description>A dimmable rgb light.</description>
+
+		<channels>
+			<channel id="color" typeId="color" />
+		</channels>
+
+		<config-description>
+			<parameter name="moduleAddress" type="integer">
+				<label>PWM Module Address [hex]</label>
+				<description>Determine the module which contains the binding Light.</description>
+				<required>true</required>
+			</parameter>
+			<parameter name="redPosition" type="integer">
+				<label>Red Position</label>
+				<description>Determine the position of the red light.</description>
+				<required>true</required>
+			</parameter>
+			<parameter name="greenPosition" type="integer">
+				<label>Green Position</label>
+				<description>Determine the position of the green light.</description>
+				<required>true</required>
+			</parameter>
+			<parameter name="bluePosition" type="integer">
+				<label>Blue Position</label>
+				<description>Determine the position of the blue light.</description>
+				<required>true</required>
+			</parameter>
+		</config-description>
+	</thing-type>
+
+	<!-- Color Channel -->
+	<channel-type id="color">
+		<item-type>Color</item-type>
+		<label>Color</label>
+		<description>The color channel allows to control the color of a light.
+			It is also possible to dim values and switch the light on and off.
+		</description>
+		<category>rgbLight</category>
+		<tags>
+			<tag>Lighting</tag>
+		</tags>
+	</channel-type>
+</thing:thing-descriptions>
