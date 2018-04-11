@@ -18,12 +18,12 @@
 		</channels>
 
 		<config-description>
-            <parameter name="moduleAddress" type="integer">
+            <parameter name="moduleAddress" type="text" pattern="[0-9a-fA-F]+">
                 <label>Relay Module Address [hex]</label>
                 <description>Determine the relay module which contains the binding Switch.</description>
                 <required>true</required>
             </parameter>
-            <parameter name="elementPosition" type="integer">
+            <parameter name="elementPosition" type="decimal">
                 <label>Element Position</label>
                 <description>Determine the position of the Switch.</description>
                 <required>true</required>

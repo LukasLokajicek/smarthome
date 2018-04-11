@@ -10,11 +10,9 @@ package org.eclipse.smarthome.binding.forcomfort.handler;
 import static org.eclipse.smarthome.binding.forcomfort.ForcomfortBindingConstants.THING_TYPE_BRIDGE;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -25,7 +23,7 @@ import org.eclipse.smarthome.binding.forcomfort.internal.AbstractElement.Element
 import org.eclipse.smarthome.binding.forcomfort.internal.AbstractElement.ElementType;
 import org.eclipse.smarthome.binding.forcomfort.internal.DimmableLight;
 import org.eclipse.smarthome.binding.forcomfort.internal.RGBLight;
-import org.eclipse.smarthome.binding.forcomfort.internal.SwitchElement;
+import org.eclipse.smarthome.binding.forcomfort.internal.ShutterElement;
 import org.eclipse.smarthome.binding.forcomfort.internal.TCPclient;
 import org.eclipse.smarthome.binding.forcomfort.internal.TCPlistener;
 import org.eclipse.smarthome.config.core.status.ConfigStatusMessage;
@@ -46,18 +44,21 @@ import org.slf4j.LoggerFactory;
 /**
  * The {@link ForcomfortBridgeHandler} is responsible for handling commands, which are
  * sent to one of the channels.
- * 
+ *
  * @author Lukas_L - Initial contribution
  */
 public class ForcomfortBridgeHandler extends ConfigStatusBridgeHandler implements TCPlistener {
 
     public final static Set<ThingTypeUID> SUPPORTED_THING_TYPES = Collections.singleton(THING_TYPE_BRIDGE);
 
-    private Logger logger = LoggerFactory.getLogger(ForcomfortBridgeHandler.class);
+    private final Logger logger = LoggerFactory.getLogger(ForcomfortBridgeHandler.class);
 
     private TCPclient tcpClient;
 
-    private Map<Integer, List<AbstractElement>> elements = new HashMap<>();
+    /**
+     * Key - combined id of element
+     */
+    private final Map<Integer, AbstractElement> elements = new HashMap<>();
 
     public JSONObject discoveryMsg;
 
@@ -77,7 +78,7 @@ public class ForcomfortBridgeHandler extends ConfigStatusBridgeHandler implement
 
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
-        // not supported
+        logger.info("Received Bridge Command " + channelUID.getAsString() + " "+ command.toFullString());
     }
 
     @Override
@@ -112,7 +113,6 @@ public class ForcomfortBridgeHandler extends ConfigStatusBridgeHandler implement
     public void dispose() {
         tcpClient.disconnect();
         logger.debug("4com4t bridge handler was disposed.");
-        super.dispose();
     }
 
     @Override
@@ -121,8 +121,6 @@ public class ForcomfortBridgeHandler extends ConfigStatusBridgeHandler implement
 
         String typeString = "";
 
-        List<AbstractElement> elementGroup;
-
         try {
             json = new JSONObject(msg);
             typeString = json.getString("elementType");
@@ -130,32 +128,20 @@ public class ForcomfortBridgeHandler extends ConfigStatusBridgeHandler implement
                 discoveryMsg = json;
                 return;
             }
-            int address = Integer.parseInt(json.getString(AbstractElement.ADDRESS_MODULE_JSON));
+            int address = Integer.parseInt(json.getString(AbstractElement.ADDRESS_MODULE_JSON), 16);
             int position = json.getInt(AbstractElement.ELEMENT_POSITION_JSON);
 
-            elementGroup = elements.get(address);
             ElementType type = ElementType.valueOf(typeString);
-            AbstractElement element = null;
+            AbstractElement element = elements.get(AbstractElement.getCombinedId(address, position));
 
-            if (elementGroup != null) {
-                for (AbstractElement el : elementGroup) {
-                    if (el.getElementPosition() == position) {
-                        element = el;
-                        break;
-                    }
-                }
-            } else
-                logger.debug(
-                        "There is no element with following " + AbstractElement.ADDRESS_MODULE_JSON + " : " + address);
-
-            if (element != null)
+            if (element != null) {
                 switch (type) {
                     case DimmableLight:
-                        Integer brightness = json.getInt(DimmableLight.BRIGHTNESS);
+                        int brightness = json.getInt(DimmableLight.BRIGHTNESS);
                         element.stateUpdate(ElementParam.Brightness, brightness);
 
                         break;
-                    case RGBlightElement:
+                    case RgbLightElement:
                         JSONArray rgbJ = json.getJSONArray(RGBLight.RGB_JSON);
                         int[] rgb = new int[] { rgbJ.getInt(0), rgbJ.getInt(1), rgbJ.getInt(2) };
 
@@ -163,14 +149,18 @@ public class ForcomfortBridgeHandler extends ConfigStatusBridgeHandler implement
 
                         break;
                     case SwitchElement:
-                        Boolean isOn = json.getBoolean(SwitchElement.IS_ON_JSON);
+                        Boolean isOn = json.getBoolean(AbstractElement.IS_ON_JSON);
                         element.stateUpdate(ElementParam.IsOn, isOn);
+                        break;
+                    case ShutterElement:
+                        int state = json.getInt(ShutterElement.STATE_JSON);
+                        element.stateUpdate(ElementParam.Percent, state);
                         break;
 
                 }
-            else
-                logger.debug("There is no element with following " + AbstractElement.ELEMENT_POSITION_JSON + " : "
-                        + position);
+            } else {
+                logger.debug("There is no element with following combined ID: {}", Integer.toHexString(AbstractElement.getCombinedId(address, position)));
+            }
 
         } catch (JSONException e) {
             logger.debug("Couldn't parse Json message: " + msg, e);
@@ -182,25 +172,25 @@ public class ForcomfortBridgeHandler extends ConfigStatusBridgeHandler implement
 
     @Override
     public void changeStatus(ThingStatus status) {
-        if (!thing.getStatus().equals(status))
+        if (!thing.getStatus().equals(status)) {
             updateStatus(status);
+        }
     }
 
     public ThingUID getBridgeUID() {
         return bridge.getUID();
     }
 
-    public void registerElement(AbstractElement element) {
+    public void unregisterElement(AbstractElement element) {
         if (element == null)
             return;
+        elements.remove(element.getCombinedId());
+    }
 
-        List<AbstractElement> list = elements.get(element.getModuleAddress());
-
-        if (list == null) {
-            list = new ArrayList<>();
-            elements.put(element.getModuleAddress(), list);
+    public void registerElement(AbstractElement element) {
+        if (element == null) {
+            return;
         }
-
-        list.add(element);
+        elements.put(element.getCombinedId(), element);
     }
 }

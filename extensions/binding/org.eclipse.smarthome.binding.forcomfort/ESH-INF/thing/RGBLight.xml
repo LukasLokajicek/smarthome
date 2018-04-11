@@ -17,22 +17,22 @@
 		</channels>
 
 		<config-description>
-			<parameter name="moduleAddress" type="integer">
+            <parameter name="moduleAddress" type="text" pattern="[0-9a-fA-F]+">
 				<label>PWM Module Address [hex]</label>
 				<description>Determine the module which contains the binding Light.</description>
 				<required>true</required>
 			</parameter>
-			<parameter name="redPosition" type="integer">
+			<parameter name="redPosition" type="decimal">
 				<label>Red Position</label>
 				<description>Determine the position of the red light.</description>
 				<required>true</required>
 			</parameter>
-			<parameter name="greenPosition" type="integer">
+			<parameter name="greenPosition" type="decimal">
 				<label>Green Position</label>
 				<description>Determine the position of the green light.</description>
 				<required>true</required>
 			</parameter>
-			<parameter name="bluePosition" type="integer">
+			<parameter name="bluePosition" type="decimal">
 				<label>Blue Position</label>
 				<description>Determine the position of the blue light.</description>
 				<required>true</required>

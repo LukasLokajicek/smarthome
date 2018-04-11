@@ -51,31 +51,38 @@ public class DiscoveryThingService extends AbstractDiscoveryService {
             JSONObject json;
             String s;
             ElementType type;
-            int pos, address;
+            int pos,address;
+            String addressHexString;
             try {
                 elementsArray = bridgeHandler.discoveryMsg.getJSONArray("elements");
 
-                if (elementsArray == null)
+                if (elementsArray == null) {
                     return;
+                }
 
                 for (int i = 0; i < elementsArray.length(); i++) {
                     json = elementsArray.getJSONObject(i);
 
                     pos = json.getInt(ForcomfortBindingConstants.ELEMENT_POSITION);
-                    address = json.getInt(ForcomfortBindingConstants.ADDRESS_MODULE);
+                    addressHexString = json.getString(ForcomfortBindingConstants.ADDRESS_MODULE);
+                    address = Integer.parseInt(addressHexString,16);
                     properties.clear();
-                    properties.put(ForcomfortBindingConstants.ADDRESS_MODULE, address);
+                    properties.put(ForcomfortBindingConstants.ADDRESS_MODULE, addressHexString);
                     properties.put(ForcomfortBindingConstants.ELEMENT_POSITION, pos);
 
                     s = json.getString("elementType");
                     type = ElementType.valueOf(s);
                     uid = new ThingUID(AbstractElement.getThingTypeUID(type),
                             String.valueOf(((address & 0xff) << 8 | (pos & 0xff)) & 0xffff));
-                    if (type == ElementType.RGBlightElement) {
+                    if (type == ElementType.RgbLightElement) {
                         JSONArray ja = json.getJSONArray("positions");
                         properties.put(ForcomfortBindingConstants.R_POSITION, ja.getInt(0));
                         properties.put(ForcomfortBindingConstants.G_POSITION, ja.getInt(1));
                         properties.put(ForcomfortBindingConstants.B_POSITION, ja.getInt(2));
+                    }
+                    if (type == ElementType.ShutterElement) {
+                        properties.put(ForcomfortBindingConstants.ON_OFF_POSITION, json.getInt(ForcomfortBindingConstants.ON_OFF_POSITION));
+                        properties.put(ForcomfortBindingConstants.STATE_POSITION, json.getInt(ForcomfortBindingConstants.STATE_POSITION));
                     }
 
                     label = json.getString("name");
@@ -95,14 +102,16 @@ public class DiscoveryThingService extends AbstractDiscoveryService {
     }
 
     private void sendDiscoveryRequest() {
-        if (bridgeHandler == null)
+        if (bridgeHandler == null) {
             return;
+        }
         try {
             bridgeHandler.sendToServer(new JSONObject().put("elementType", "discoveryService").toString());
             for (int i = 0; i < 10; i++) {
                 Thread.sleep(500);
-                if (bridgeHandler.discoveryMsg != null)
+                if (bridgeHandler.discoveryMsg != null) {
                     break;
+                }
             }
 
         } catch (JSONException e) {

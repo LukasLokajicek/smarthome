@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
 
 public class RGBLight extends AbstractElement {
 
-    private static final ElementType TYPE = ElementType.RGBlightElement;
+    private static final ElementType TYPE = ElementType.RgbLightElement;
     private static final Logger logger = LoggerFactory.getLogger(RGBLight.class);
     private static final int DIM_STEPSIZE = 5;
 

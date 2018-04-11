@@ -18,7 +18,7 @@
                 <required>true</required>
             </parameter>
             
-           <parameter name="port" type="integer">
+           <parameter name="port" type="decimal">
                 <label>Port</label>
                 <description>The port on which the 4com4t bridge can be accessed.</description>
                 <default>10008</default>

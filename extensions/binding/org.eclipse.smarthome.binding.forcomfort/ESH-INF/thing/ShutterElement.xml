@@ -18,17 +18,17 @@
 		</channels>
 
 		<config-description>
-            <parameter name="moduleAddress" type="integer">
+            <parameter name="moduleAddress" type="text" pattern="[0-9a-fA-F]+">
                 <label>Relay Module Address [hex]</label>
                 <description>Determine the relay module which contains the binding Switch.</description>
                 <required>true</required>
             </parameter>
-            <parameter name="onOffPosition" type="integer">
+            <parameter name="onOffPosition" type="decimal">
                 <label>On/Off Position</label>
                 <description>Determine the position of the switch for activate/deactivate power into 3-state switch.</description>
                 <required>true</required>
             </parameter>
-            <parameter name="statePosition" type="integer">
+            <parameter name="statePosition" type="decimal">
                 <label>State Position</label>
                 <description>Determine the position of the switch for closing and opening shutter.</description>
                 <required>true</required>
@@ -38,13 +38,13 @@
 	
 	<!-- Switch Channel -->
     <channel-type id="shutter">
-        <item-type>RollerShutter</item-type>
+        <item-type>Rollershutter</item-type>
         <label>RollerShutter</label>
         <description>The Shutter channel allows to control shutter state.
         </description>
-        <category>Switch</category>
+        <category>Rollershutter</category>
         <tags>
-            <tag>Switching</tag>
+            <tag>Rollershutters</tag>
         </tags>
     </channel-type>
 	

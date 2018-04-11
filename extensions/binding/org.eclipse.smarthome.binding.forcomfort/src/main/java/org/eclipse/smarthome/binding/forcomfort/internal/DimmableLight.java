@@ -37,12 +37,10 @@ public class DimmableLight extends AbstractElement {
 
     @Override
     public String commandToJson(OnOffType cmd) {
-
         int val = 0;
-
-        if (isOnCommand(cmd))
+        if (isOnCommand(cmd)) {
             val = 100;
-
+        }
         return getJson(val);
     }
 
@@ -78,13 +76,13 @@ public class DimmableLight extends AbstractElement {
     @Override
     public void stateUpdate(ElementParam param, Object o) {
         Integer brightness;
-        if(o instanceof Integer)
+        if (o instanceof Integer) {
             brightness = (Integer) o;
-        else {
+        } else {
             logger.debug("DimmableLight supports only Integer parameter.");
             return;
         }
-       
+
         State state = new PercentType(brightness);
         listener.updateStateThing(ForcomfortBindingConstants.CHANNEL_BRIGHTNESS, state);
     }
